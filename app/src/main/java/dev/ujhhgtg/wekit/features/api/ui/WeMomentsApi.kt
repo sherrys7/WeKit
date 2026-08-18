@@ -1212,7 +1212,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         return usable
     }
 
-    private suspend fun ensureLivePhotoVideosCached(
+    suspend fun ensureLivePhotoVideosCached(
         content: MomentContent,
         timeoutMs: Long = 90_000,
         intervalMs: Long = 500
