@@ -1076,7 +1076,7 @@ object WeMomentsApi : ApiFeature(), IResolveDex {
         val proto = getTimelineProto(snsInfo) ?: return null
         val contentObj = proto.contentObj ?: return null
         val native = nativeTimeline ?: getNativeTimeline(snsInfo) ?: return null
-        val nativeMediaList = getNativeMediaList(native) ?: return null
+        val nativeMediaList = getNativeMediaList(native) ?: if (contentObj.mediaList.isEmpty()) LinkedList<Any?>() else return null
         val nativeContentObj = runCatching { native.reflekt().getField("ContentObj") }.getOrNull()
         return MomentContent(
             contentText = proto.contentDesc ?: "",
