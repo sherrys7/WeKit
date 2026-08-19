@@ -1,6 +1,8 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_screen_panel
 
 import android.graphics.PorterDuff
+import android.net.Uri
+import android.os.Build
 import android.widget.ImageView
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -8,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +39,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,6 +53,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,8 +66,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -71,9 +80,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.res.stringResource
+import androidx.core.graphics.toColorInt
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Add_photo_alternate
 import com.composables.icons.materialsymbols.outlined.Air
 import com.composables.icons.materialsymbols.outlined.Arrow_back
 import com.composables.icons.materialsymbols.outlined.Bookmark
@@ -83,6 +94,7 @@ import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Cloud
 import com.composables.icons.materialsymbols.outlined.Cloudy_snowing
 import com.composables.icons.materialsymbols.outlined.Cyclone
+import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Device_thermostat
 import com.composables.icons.materialsymbols.outlined.Extension
 import com.composables.icons.materialsymbols.outlined.Foggy
@@ -95,6 +107,7 @@ import com.composables.icons.materialsymbols.outlined.Movie
 import com.composables.icons.materialsymbols.outlined.My_location
 import com.composables.icons.materialsymbols.outlined.Partly_cloudy_day
 import com.composables.icons.materialsymbols.outlined.Person_pin
+import com.composables.icons.materialsymbols.outlined.Photo_library
 import com.composables.icons.materialsymbols.outlined.Qr_code_scanner
 import com.composables.icons.materialsymbols.outlined.Question_mark
 import com.composables.icons.materialsymbols.outlined.Rainy
@@ -118,9 +131,13 @@ import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.features.api.core.WeTextStatusApi
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
+import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.IntNumberPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
@@ -168,6 +185,76 @@ internal fun shortcutSpec(shortcut: HomeSidePanelShortcut): HomeSidePanelShortcu
     HomeSidePanelShortcut.WEKIT_SETTINGS -> HomeSidePanelShortcutSpec(shortcut, R.string.home_side_panel_wekit_settings, HomeSidePanelIconKind.EXTENSION, HomeSidePanelShortcutPlacement.LIST_ITEM)
 }
 
+/** Whether the user opted the module theme color into WeChat (this panel's content). */
+private fun homeSidePanelThemeColorActive(): Boolean = ThemeSettings.applyToWechat
+
+/**
+ * Container color for the side panel cards.
+ *
+ * Priority: the module theme color wins whenever the user turned on the theme color for WeChat
+ * ([ThemeSettings.applyToWechat]); otherwise the card color mode from the side panel settings
+ * decides (follow theme / Monet dynamic color / custom hex).
+ */
+@Composable
+private fun homeSidePanelCardContainerColor(state: HomeSidePanelUiState): Color {
+    if (homeSidePanelThemeColorActive()) {
+        return MaterialTheme.colorScheme.primaryContainer
+    }
+    return when (state.cardColorMode) {
+        HomeSidePanelCardColorMode.FOLLOW_THEME -> MaterialTheme.colorScheme.primaryContainer
+        HomeSidePanelCardColorMode.MONET -> homeSidePanelMonetContainerColor()
+        HomeSidePanelCardColorMode.CUSTOM_HEX ->
+            runCatching { state.cardColorHex.toColorInt() }.getOrNull()?.let(::Color)
+                ?: MaterialTheme.colorScheme.primaryContainer
+    }
+}
+
+/** Foreground color that reads well on [homeSidePanelCardContainerColor]. */
+@Composable
+private fun homeSidePanelCardContentColor(state: HomeSidePanelUiState): Color {
+    if (homeSidePanelThemeColorActive()) {
+        return MaterialTheme.colorScheme.onPrimaryContainer
+    }
+    return when (state.cardColorMode) {
+        HomeSidePanelCardColorMode.FOLLOW_THEME -> MaterialTheme.colorScheme.onPrimaryContainer
+        HomeSidePanelCardColorMode.MONET -> homeSidePanelMonetContentColor()
+        HomeSidePanelCardColorMode.CUSTOM_HEX -> {
+            val color = runCatching { state.cardColorHex.toColorInt() }.getOrNull()
+                ?: return MaterialTheme.colorScheme.onPrimaryContainer
+            if (Color(color).luminance() > 0.5f) Color(0xFF111111) else Color.White
+        }
+    }
+}
+
+/**
+ * Monet (Android 12+ dynamic color) container color. Falls back to the current theme's
+ * primaryContainer on SDK < 31.
+ */
+@Composable
+private fun homeSidePanelMonetContainerColor(): Color {
+    val context = LocalContext.current
+    val dark = isSystemInDarkTheme()
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val scheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        scheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+}
+
+/** Monet content color paired with [homeSidePanelMonetContainerColor]. */
+@Composable
+private fun homeSidePanelMonetContentColor(): Color {
+    val context = LocalContext.current
+    val dark = isSystemInDarkTheme()
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val scheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        scheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+}
+
 @Composable
 internal fun HomeSidePanelContent(
     state: HomeSidePanelUiState,
@@ -202,10 +289,11 @@ private fun HomeSidePanelHome(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         HomeSidePanelProfileHeader(state.profile, panelState)
-        HomeSidePanelDateTimeCard()
+        HomeSidePanelDateTimeCard(panelState)
+        HomeSidePanelPhotoCard(state.photoUri, panelState)
         HomeSidePanelWeatherCard(state.weather, panelState)
         HomeSidePanelWalletCard(state.wallet, panelState)
-        HomeSidePanelShortcutList(panelState)
+        HomeSidePanelShortcutList(panelState, state.showVideoChannelsShortcut)
         HomeSidePanelHitokotoCard(state.hitokoto, state.hitokotoSettings, panelState)
     }
 }
@@ -313,13 +401,16 @@ private fun HomeSidePanelStatus(
 }
 
 @Composable
-private fun HomeSidePanelDateTimeCard() {
+private fun HomeSidePanelDateTimeCard(panelState: HomeSidePanelState) {
     val now = rememberHomeSidePanelNow()
     val localizedContext = LocalContext.current
+    val state = panelState.uiState.value
+    val containerColor = homeSidePanelCardContainerColor(state)
+    val contentColor = homeSidePanelCardContentColor(state)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
@@ -327,6 +418,7 @@ private fun HomeSidePanelDateTimeCard() {
                     now.format(HOME_SIDE_PANEL_TIME_FORMATTER),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.Bold,
+                    color = contentColor,
                 )
                 Text(
                     now.format(
@@ -337,12 +429,108 @@ private fun HomeSidePanelDateTimeCard() {
                     ),
                     modifier = Modifier.padding(start = 10.dp, bottom = 5.dp),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = contentColor.copy(alpha = 0.8f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(stringResource(greetingResForHour(now.hour)), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(greetingResForHour(now.hour)),
+                style = MaterialTheme.typography.titleMedium,
+                color = contentColor,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HomeSidePanelPhotoCard(
+    photoUri: String?,
+    panelState: HomeSidePanelState,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val uri = photoUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
+    var imageFailed by remember(uri) { mutableStateOf(false) }
+    val shape = RoundedCornerShape(24.dp)
+    val state = panelState.uiState.value
+    val containerColor = homeSidePanelCardContainerColor(state)
+    val contentColor = homeSidePanelCardContentColor(state)
+    Box {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .combinedClickable(
+                    onClick = panelState::pickPhoto,
+                    onLongClick = { menuExpanded = true },
+                ),
+            shape = shape,
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .clip(shape),
+            ) {
+                if (uri != null && !imageFailed) {
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.matchParentSize(),
+                        onState = { s ->
+                            if (s is AsyncImagePainter.State.Error) imageFailed = true
+                        },
+                    )
+                }
+                Column(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            if (uri != null && !imageFailed) Color.Transparent
+                            else containerColor.copy(alpha = 0.55f)
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        if (uri != null && !imageFailed) MaterialSymbols.Outlined.Photo_library
+                        else MaterialSymbols.Outlined.Add_photo_alternate,
+                        contentDescription = null,
+                        tint = if (uri != null && !imageFailed) Color.White else contentColor,
+                        modifier = Modifier.size(32.dp),
+                    )
+                    Text(
+                        text = if (uri != null && !imageFailed) stringResource(R.string.home_side_panel_photo_tap_actions)
+                        else stringResource(R.string.home_side_panel_photo_empty),
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (uri != null && !imageFailed) Color.White else contentColor,
+                    )
+                }
+            }
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.home_side_panel_photo_choose)) },
+                leadingIcon = { Icon(MaterialSymbols.Outlined.Photo_library, contentDescription = null) },
+                onClick = {
+                    menuExpanded = false
+                    panelState.pickPhoto()
+                },
+            )
+            if (photoUri != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.home_side_panel_photo_remove)) },
+                    leadingIcon = { Icon(MaterialSymbols.Outlined.Delete, contentDescription = null) },
+                    onClick = {
+                        menuExpanded = false
+                        panelState.removePhoto()
+                    },
+                )
+            }
         }
     }
 }
@@ -355,6 +543,9 @@ private fun HomeSidePanelWeatherCard(
 ) {
     val snapshot = weatherCardSnapshot(weather)
     val shape = RoundedCornerShape(24.dp)
+    val state = panelState.uiState.value
+    val containerColor = homeSidePanelCardContainerColor(state)
+    val contentColor = homeSidePanelCardContentColor(state)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -364,9 +555,8 @@ private fun HomeSidePanelWeatherCard(
                 onLongClick = panelState::openWeatherSettings,
             ),
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
-        val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         val location = snapshot?.city?.let { city ->
             listOfNotNull(city.city, city.district?.takeIf(String::isNotBlank))
                 .distinct()
@@ -483,6 +673,7 @@ private fun HomeSidePanelWeatherCard(
                             icon = MaterialSymbols.Outlined.Device_thermostat,
                             value = snapshot?.let { "${it.high}° / ${it.low}°" } ?: "-- / --",
                             label = stringResource(R.string.home_side_panel_high_low),
+                            contentColor = contentColor,
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
@@ -495,6 +686,7 @@ private fun HomeSidePanelWeatherCard(
                             icon = MaterialSymbols.Outlined.Humidity_percentage,
                             value = snapshot?.let { "${it.humidity}%" } ?: "--",
                             label = stringResource(R.string.home_side_panel_humidity),
+                            contentColor = contentColor,
                             modifier = Modifier.weight(1f),
                         )
                         VerticalDivider(
@@ -507,6 +699,7 @@ private fun HomeSidePanelWeatherCard(
                             icon = MaterialSymbols.Outlined.Air,
                             value = snapshot?.let { "${it.windSpeed} km/h" } ?: "--",
                             label = stringResource(R.string.home_side_panel_wind_speed),
+                            contentColor = contentColor,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -515,7 +708,7 @@ private fun HomeSidePanelWeatherCard(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)),
+                            .background(containerColor.copy(alpha = 0.82f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
@@ -537,7 +730,9 @@ private fun HomeSidePanelWalletCard(
     panelState: HomeSidePanelState,
 ) {
     val shape = RoundedCornerShape(24.dp)
-    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val state = panelState.uiState.value
+    val containerColor = homeSidePanelCardContainerColor(state)
+    val contentColor = homeSidePanelCardContentColor(state)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -548,7 +743,7 @@ private fun HomeSidePanelWalletCard(
             ),
         shape = shape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            containerColor = containerColor,
         ),
     ) {
         Column(
@@ -623,9 +818,9 @@ private fun HomeSidePanelWeatherMetric(
     icon: ImageVector,
     value: String,
     label: String,
+    contentColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     Row(
         modifier = modifier.padding(horizontal = 6.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.Center,
@@ -672,9 +867,14 @@ private fun rememberHomeSidePanelNow(): LocalDateTime {
 }
 
 @Composable
-private fun HomeSidePanelShortcutList(panelState: HomeSidePanelState) {
-    val tiles = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.TILE }
-    val listItems = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.LIST_ITEM }
+private fun HomeSidePanelShortcutList(
+    panelState: HomeSidePanelState,
+    showVideoChannels: Boolean,
+) {
+    val allTiles = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.TILE }
+    val allListItems = HomeSidePanelShortcut.entries.filter { shortcutSpec(it).placement == HomeSidePanelShortcutPlacement.LIST_ITEM }
+    val tiles = if (showVideoChannels) allTiles else allTiles.filterNot { it == HomeSidePanelShortcut.VIDEO_CHANNELS }
+    val listItems = if (showVideoChannels) allListItems else allListItems.filterNot { it == HomeSidePanelShortcut.VIDEO_CHANNELS }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         tiles.forEach { shortcut ->
             val spec = shortcutSpec(shortcut)
@@ -731,6 +931,9 @@ private fun HomeSidePanelHitokotoCard(
         else -> null
     }
     val shape = RoundedCornerShape(22.dp)
+    val state = panelState.uiState.value
+    val containerColor = homeSidePanelCardContainerColor(state)
+    val contentColor = homeSidePanelCardContentColor(state)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -740,12 +943,12 @@ private fun HomeSidePanelHitokotoCard(
                 onLongClick = panelState::openHitokotoSettings,
             ),
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(stringResource(R.string.home_side_panel_hitokoto), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Icon(MaterialSymbols.Outlined.Format_quote, contentDescription = null, tint = contentColor)
+                Text(stringResource(R.string.home_side_panel_hitokoto), modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = contentColor)
             }
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -758,6 +961,7 @@ private fun HomeSidePanelHitokotoCard(
                             }
                         ),
                         style = MaterialTheme.typography.bodyLarge,
+                        color = contentColor,
                     )
                     if (snapshot != null && (settings.showSource || settings.showAuthor)) {
                         val author = snapshot.author?.trim()?.takeIf { settings.showAuthor && it.isNotEmpty() }
@@ -777,7 +981,7 @@ private fun HomeSidePanelHitokotoCard(
                                 text = it,
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = contentColor.copy(alpha = 0.72f),
                                 textAlign = TextAlign.End,
                             )
                         }
@@ -789,12 +993,12 @@ private fun HomeSidePanelHitokotoCard(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.82f)),
+                            .background(containerColor.copy(alpha = 0.82f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(28.dp),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = contentColor,
                             strokeWidth = 3.dp,
                         )
                     }
@@ -1133,7 +1337,55 @@ private fun HomeSidePanelPanelSettings(
                     onCheckedChange = panelState::setHideWeChatTitle,
                 )
             }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_video_channels_shortcut),
+                    checked = state.showVideoChannelsShortcut,
+                    onCheckedChange = panelState::setShowVideoChannelsShortcut,
+                )
+            }
         }
+        SegmentedColumn(contentPadding = PaddingValues(0.dp)) {
+            item {
+                DropDownMenuWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_card_color_mode),
+                    description = null,
+                    value = state.cardColorMode,
+                    options = listOf(
+                        DropdownOption(
+                            HomeSidePanelCardColorMode.FOLLOW_THEME,
+                            stringResource(R.string.home_side_panel_card_color_mode_follow_theme),
+                        ),
+                        DropdownOption(
+                            HomeSidePanelCardColorMode.MONET,
+                            stringResource(R.string.home_side_panel_card_color_mode_monet),
+                        ),
+                        DropdownOption(
+                            HomeSidePanelCardColorMode.CUSTOM_HEX,
+                            stringResource(R.string.home_side_panel_card_color_mode_custom_hex),
+                        ),
+                    ),
+                    onValueChange = panelState::setCardColorMode,
+                )
+            }
+            item {
+                ColorPickerWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_card_color_hex),
+                    value = state.cardColorHex,
+                    enabled = state.cardColorMode == HomeSidePanelCardColorMode.CUSTOM_HEX,
+                    onValueChange = panelState::setCardColorHex,
+                )
+            }
+        }
+        Text(
+            stringResource(R.string.home_side_panel_card_color_theme_priority_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
     }
 }
 

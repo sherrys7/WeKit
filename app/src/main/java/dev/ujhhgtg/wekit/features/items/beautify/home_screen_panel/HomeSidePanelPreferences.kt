@@ -16,6 +16,25 @@ internal object HomeSidePanelPreferenceKeys {
     const val SHOW_TOOLBAR_PROFILE = "home_side_panel_show_toolbar_profile"
     const val HIDE_WECHAT_TITLE = "home_side_panel_hide_wechat_title"
     const val HIDE_WALLET_BALANCE = "home_side_panel_hide_wallet_balance"
+    const val CARD_COLOR_MODE = "home_side_panel_card_color_mode"
+    const val CARD_COLOR_HEX = "home_side_panel_card_color_hex"
+    const val SHOW_VIDEO_CHANNELS_SHORTCUT = "home_side_panel_show_video_channels_shortcut"
+    const val PHOTO_URI = "home_side_panel_photo_uri"
+}
+
+/** How the side panel cards pick their container color. */
+internal enum class HomeSidePanelCardColorMode {
+    /** Follow the current theme (WeChat green or the module theme color). */
+    FOLLOW_THEME,
+    /** Derive from the system wallpaper / dynamic color when available. */
+    MONET,
+    /** Use a user-entered hex color. */
+    CUSTOM_HEX;
+
+    companion object {
+        fun fromStored(value: String?): HomeSidePanelCardColorMode =
+            entries.find { it.name == value } ?: FOLLOW_THEME
+    }
 }
 
 internal object HomeSidePanelPreferences {
@@ -25,6 +44,30 @@ internal object HomeSidePanelPreferences {
     var showToolbarProfile by prefOption(HomeSidePanelPreferenceKeys.SHOW_TOOLBAR_PROFILE, true)
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
     var hideWalletBalance by prefOption(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
+
+    var cardColorMode: HomeSidePanelCardColorMode
+        get() = HomeSidePanelCardColorMode.fromStored(
+            WePrefs.getString(HomeSidePanelPreferenceKeys.CARD_COLOR_MODE)
+        )
+        set(value) = WePrefs.putString(HomeSidePanelPreferenceKeys.CARD_COLOR_MODE, value.name)
+
+    /** Custom hex container color, e.g. `#AARRGGBB`; blank when unset. */
+    var cardColorHex: String
+        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.CARD_COLOR_HEX) ?: ""
+        set(value) = WePrefs.putString(HomeSidePanelPreferenceKeys.CARD_COLOR_HEX, value)
+
+    var showVideoChannelsShortcut by prefOption(HomeSidePanelPreferenceKeys.SHOW_VIDEO_CHANNELS_SHORTCUT, true)
+
+    /** Image URI for the photo card; null when the user has not picked an image. */
+    var photoUri: String?
+        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.PHOTO_URI)
+        set(value) {
+            if (value == null) {
+                WePrefs.remove(HomeSidePanelPreferenceKeys.PHOTO_URI)
+            } else {
+                WePrefs.putString(HomeSidePanelPreferenceKeys.PHOTO_URI, value)
+            }
+        }
 
     var selectedWeatherCity: WeatherCity
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY

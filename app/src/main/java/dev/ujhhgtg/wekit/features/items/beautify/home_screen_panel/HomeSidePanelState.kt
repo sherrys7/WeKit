@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -23,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.activity.settings.SettingsActivity
 import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -31,6 +34,7 @@ import dev.ujhhgtg.wekit.features.items.beautify.BeautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.features.items.beautify.localizedBeautifyString
 import dev.ujhhgtg.wekit.features.items.beautify.resolveBeautifyText
+import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -43,6 +47,10 @@ internal data class HomeSidePanelUiState(
     val wallet: HomeSidePanelWalletUiState,
     val showToolbarProfile: Boolean,
     val hideWeChatTitle: Boolean,
+    val cardColorMode: HomeSidePanelCardColorMode,
+    val cardColorHex: String,
+    val showVideoChannelsShortcut: Boolean,
+    val photoUri: String?,
 )
 
 internal class HomeSidePanelState(
@@ -80,6 +88,10 @@ internal class HomeSidePanelState(
             ),
             showToolbarProfile = HomeSidePanelPreferences.showToolbarProfile,
             hideWeChatTitle = HomeSidePanelPreferences.hideWeChatTitle,
+            cardColorMode = HomeSidePanelPreferences.cardColorMode,
+            cardColorHex = HomeSidePanelPreferences.cardColorHex,
+            showVideoChannelsShortcut = HomeSidePanelPreferences.showVideoChannelsShortcut,
+            photoUri = HomeSidePanelPreferences.photoUri,
         ),
     )
 
@@ -287,6 +299,58 @@ internal class HomeSidePanelState(
     fun setHideWeChatTitle(hide: Boolean) {
         HomeSidePanelPreferences.hideWeChatTitle = hide
         _uiState.update { it.copy(hideWeChatTitle = hide) }
+    }
+
+    fun setCardColorMode(mode: HomeSidePanelCardColorMode) {
+        HomeSidePanelPreferences.cardColorMode = mode
+        _uiState.update { it.copy(cardColorMode = mode) }
+    }
+
+    fun setCardColorHex(hex: String) {
+        HomeSidePanelPreferences.cardColorHex = hex
+        _uiState.update { it.copy(cardColorHex = hex) }
+    }
+
+    fun setShowVideoChannelsShortcut(show: Boolean) {
+        HomeSidePanelPreferences.showVideoChannelsShortcut = show
+        _uiState.update { it.copy(showVideoChannelsShortcut = show) }
+    }
+
+    fun setPhotoUri(uri: String?) {
+        HomeSidePanelPreferences.photoUri = uri
+        _uiState.update { it.copy(photoUri = uri) }
+    }
+
+    fun removePhoto() = setPhotoUri(null)
+
+    /**
+     * Launch the system photo picker. Runs inside [TransparentActivity] (the side panel lives in
+     * the WeChat host process, so it cannot register an Activity Result launcher on LauncherUI).
+     */
+    fun pickPhoto() {
+        TransparentActivity.launch(activity) {
+            val launcher = registerForActivityResult(
+                ActivityResultContracts.PickVisualMedia()
+            ) { uri ->
+                finish()
+                if (uri == null) return@registerForActivityResult
+                runCatching {
+                    activity.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }.onFailure {
+                    WeLogger.w(TAG, "failed to take persistable photo permission", it)
+                }
+                setPhotoUri(uri.toString())
+                activity.runOnUiThread {
+                    showToast(activity, localizedBeautifyString(R.string.home_side_panel_photo_selected))
+                }
+            }
+            launcher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        }
     }
 
     fun openPersonalProfile() {
@@ -655,6 +719,7 @@ internal class HomeSidePanelState(
     }
 
     private companion object {
+        const val TAG = "HomeSidePanelState"
         const val PERSONAL_PROFILE_NEW_CLASS =
             "com.tencent.mm.plugin.setting.ui.setting_new.CommonSettingsUI"
         const val PERSONAL_PROFILE_LEGACY_CLASS =
