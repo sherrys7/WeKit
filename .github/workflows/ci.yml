@@ -113,13 +113,13 @@ jobs:
           WEKIT_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           WEKIT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           WEKIT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./gradlew assembleStandardRelease --warning-mode all --stacktrace
 
       - name: Build Release (Unsigned)
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew assembleRelease --warning-mode all --stacktrace
+        run: ./gradlew assembleStandardRelease --warning-mode all --stacktrace
 
       - name: Collect APKs
         run: |
@@ -127,18 +127,16 @@ jobs:
           mkdir -p dist/apk
 
           expected_abis=$(printf '%s\n' arm64-v8a armeabi-v7a)
-          for flavor in standard legacy; do
-            apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
-            test -f "$apk"
+          apk="app/build/outputs/apk/standard/release/app-standard-release.apk"
+          test -f "$apk"
 
-            actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
-            if [ "$actual_abis" != "$expected_abis" ]; then
-              echo "::error file=$apk::Expected universal arm64-v8a + armeabi-v7a APK, got: $actual_abis"
-              exit 1
-            fi
+          actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
+          if [ "$actual_abis" != "$expected_abis" ]; then
+            echo "::error file=$apk::Expected universal arm64-v8a + armeabi-v7a APK, got: $actual_abis"
+            exit 1
+          fi
 
-            cp -v "$apk" dist/apk/
-          done
+          cp -v "$apk" dist/apk/
 
           echo "Collected APKs:"
           ls -1 dist/apk
