@@ -208,18 +208,27 @@ object AutoSaveMoments : AutoMomentsBase(),
         val types = AutoSaveMomentsSettings.saveTypes()
 
         val type = content.type
-        val isLive = content.hasLivePhoto && types.livePhotos
-        val isVideo = !isLive && (type == MomentsContentType.VIDEO.typeId || type == MomentsContentType.LITTLE_VIDEO.typeId) && types.videos
-        val isImage = !isLive && !isVideo && type == MomentsContentType.IMG.typeId && types.images
-        val isText = !isLive && !isVideo && !isImage && type == MomentsContentType.TEXT.typeId && types.text && content.contentText.isNotBlank()
+        val isLiveContent = content.hasLivePhoto
+        val isVideoContent = !isLiveContent &&
+            (type == MomentsContentType.VIDEO.typeId || type == MomentsContentType.LITTLE_VIDEO.typeId)
+        val isImageContent = !isLiveContent && !isVideoContent && type == MomentsContentType.IMG.typeId
+        val hasMedia = isLiveContent || isVideoContent || isImageContent
+        val isLive = isLiveContent && types.livePhotos
+        val isVideo = isVideoContent && types.videos
+        val isImage = isImageContent && types.images
+        val isText = !hasMedia && type == MomentsContentType.TEXT.typeId && types.text && content.contentText.isNotBlank()
 
-        return when {
+        var saved = when {
             isLive -> saveLivePhoto(target, relativeDir, content)
             isVideo -> saveVideo(target, relativeDir, content)
             isImage -> saveImages(target, relativeDir, content)
             isText -> saveText(target, relativeDir, content.contentText)
             else -> false
         }
+        if (hasMedia && types.text && content.contentText.isNotBlank()) {
+            saved = saveText(target, relativeDir, content.contentText) || saved
+        }
+        return saved
     }
 
     private fun saveLivePhoto(target: SaveTarget, relativeDir: String, content: MomentContent): Boolean {

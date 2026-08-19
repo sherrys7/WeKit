@@ -2914,6 +2914,11 @@
     <string name="home_side_panel_show_toolbar_profile">在微信标题栏显示「我」组件</string>
     <string name="home_side_panel_hide_wechat_title">隐藏微信标题栏微信字样</string>
     <string name="home_side_panel_show_video_channels_shortcut">显示视频号快捷入口</string>
+    <string name="home_side_panel_show_time_card">显示时间卡片</string>
+    <string name="home_side_panel_show_photo_card">显示图片卡片</string>
+    <string name="home_side_panel_show_weather_card">显示天气卡片</string>
+    <string name="home_side_panel_show_wallet_card">显示余额卡片</string>
+    <string name="home_side_panel_show_hitokoto_card">显示一言卡片</string>
     <string name="home_side_panel_card_color_mode">卡片颜色</string>
     <string name="home_side_panel_card_color_mode_follow_theme">跟随主题</string>
     <string name="home_side_panel_card_color_mode_monet">莫奈（系统壁纸）</string>

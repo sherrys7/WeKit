@@ -51,6 +51,11 @@ internal data class HomeSidePanelUiState(
     val cardColorHex: String,
     val showVideoChannelsShortcut: Boolean,
     val photoUri: String?,
+    val showTimeCard: Boolean,
+    val showPhotoCard: Boolean,
+    val showWeatherCard: Boolean,
+    val showWalletCard: Boolean,
+    val showHitokotoCard: Boolean,
 )
 
 internal class HomeSidePanelState(
@@ -92,6 +97,11 @@ internal class HomeSidePanelState(
             cardColorHex = HomeSidePanelPreferences.cardColorHex,
             showVideoChannelsShortcut = HomeSidePanelPreferences.showVideoChannelsShortcut,
             photoUri = HomeSidePanelPreferences.photoUri,
+            showTimeCard = HomeSidePanelPreferences.showTimeCard,
+            showPhotoCard = HomeSidePanelPreferences.showPhotoCard,
+            showWeatherCard = HomeSidePanelPreferences.showWeatherCard,
+            showWalletCard = HomeSidePanelPreferences.showWalletCard,
+            showHitokotoCard = HomeSidePanelPreferences.showHitokotoCard,
         ),
     )
 
@@ -314,6 +324,31 @@ internal class HomeSidePanelState(
     fun setShowVideoChannelsShortcut(show: Boolean) {
         HomeSidePanelPreferences.showVideoChannelsShortcut = show
         _uiState.update { it.copy(showVideoChannelsShortcut = show) }
+    }
+
+    fun setShowTimeCard(show: Boolean) {
+        HomeSidePanelPreferences.showTimeCard = show
+        _uiState.update { it.copy(showTimeCard = show) }
+    }
+
+    fun setShowPhotoCard(show: Boolean) {
+        HomeSidePanelPreferences.showPhotoCard = show
+        _uiState.update { it.copy(showPhotoCard = show) }
+    }
+
+    fun setShowWeatherCard(show: Boolean) {
+        HomeSidePanelPreferences.showWeatherCard = show
+        _uiState.update { it.copy(showWeatherCard = show) }
+    }
+
+    fun setShowWalletCard(show: Boolean) {
+        HomeSidePanelPreferences.showWalletCard = show
+        _uiState.update { it.copy(showWalletCard = show) }
+    }
+
+    fun setShowHitokotoCard(show: Boolean) {
+        HomeSidePanelPreferences.showHitokotoCard = show
+        _uiState.update { it.copy(showHitokotoCard = show) }
     }
 
     fun setPhotoUri(uri: String?) {

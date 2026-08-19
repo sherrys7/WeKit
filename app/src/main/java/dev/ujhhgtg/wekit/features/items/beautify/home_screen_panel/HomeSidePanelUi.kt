@@ -289,12 +289,12 @@ private fun HomeSidePanelHome(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         HomeSidePanelProfileHeader(state.profile, panelState)
-        HomeSidePanelDateTimeCard(panelState)
-        HomeSidePanelPhotoCard(state.photoUri, panelState)
-        HomeSidePanelWeatherCard(state.weather, panelState)
-        HomeSidePanelWalletCard(state.wallet, panelState)
+        if (state.showTimeCard) HomeSidePanelDateTimeCard(panelState)
+        if (state.showPhotoCard) HomeSidePanelPhotoCard(state.photoUri, panelState)
+        if (state.showWeatherCard) HomeSidePanelWeatherCard(state.weather, panelState)
+        if (state.showWalletCard) HomeSidePanelWalletCard(state.wallet, panelState)
         HomeSidePanelShortcutList(panelState, state.showVideoChannelsShortcut)
-        HomeSidePanelHitokotoCard(state.hitokoto, state.hitokotoSettings, panelState)
+        if (state.showHitokotoCard) HomeSidePanelHitokotoCard(state.hitokoto, state.hitokotoSettings, panelState)
     }
 }
 
@@ -485,30 +485,27 @@ private fun HomeSidePanelPhotoCard(
                         },
                     )
                 }
-                Column(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            if (uri != null && !imageFailed) Color.Transparent
-                            else containerColor.copy(alpha = 0.55f)
-                        ),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        if (uri != null && !imageFailed) MaterialSymbols.Outlined.Photo_library
-                        else MaterialSymbols.Outlined.Add_photo_alternate,
-                        contentDescription = null,
-                        tint = if (uri != null && !imageFailed) Color.White else contentColor,
-                        modifier = Modifier.size(32.dp),
-                    )
-                    Text(
-                        text = if (uri != null && !imageFailed) stringResource(R.string.home_side_panel_photo_tap_actions)
-                        else stringResource(R.string.home_side_panel_photo_empty),
-                        modifier = Modifier.padding(top = 8.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (uri != null && !imageFailed) Color.White else contentColor,
-                    )
+                if (uri == null || imageFailed) {
+                    Column(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(containerColor.copy(alpha = 0.55f)),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            MaterialSymbols.Outlined.Add_photo_alternate,
+                            contentDescription = null,
+                            tint = contentColor,
+                            modifier = Modifier.size(32.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.home_side_panel_photo_empty),
+                            modifier = Modifier.padding(top = 8.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = contentColor,
+                        )
+                    }
                 }
             }
         }
@@ -1343,6 +1340,46 @@ private fun HomeSidePanelPanelSettings(
                     title = stringResource(R.string.home_side_panel_show_video_channels_shortcut),
                     checked = state.showVideoChannelsShortcut,
                     onCheckedChange = panelState::setShowVideoChannelsShortcut,
+                )
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_time_card),
+                    checked = state.showTimeCard,
+                    onCheckedChange = panelState::setShowTimeCard,
+                )
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_photo_card),
+                    checked = state.showPhotoCard,
+                    onCheckedChange = panelState::setShowPhotoCard,
+                )
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_weather_card),
+                    checked = state.showWeatherCard,
+                    onCheckedChange = panelState::setShowWeatherCard,
+                )
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_wallet_card),
+                    checked = state.showWalletCard,
+                    onCheckedChange = panelState::setShowWalletCard,
+                )
+            }
+            item {
+                SwitchWidget(
+                    iconPlaceholder = false,
+                    title = stringResource(R.string.home_side_panel_show_hitokoto_card),
+                    checked = state.showHitokotoCard,
+                    onCheckedChange = panelState::setShowHitokotoCard,
                 )
             }
         }

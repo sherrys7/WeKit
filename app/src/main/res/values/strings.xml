@@ -3026,6 +3026,11 @@
     <string name="home_side_panel_show_toolbar_profile">Show the “Me” widget in the WeChat title bar</string>
     <string name="home_side_panel_hide_wechat_title">Hide the WeChat title in the title bar</string>
     <string name="home_side_panel_show_video_channels_shortcut">Show video channels shortcut</string>
+    <string name="home_side_panel_show_time_card">Show time card</string>
+    <string name="home_side_panel_show_photo_card">Show photo card</string>
+    <string name="home_side_panel_show_weather_card">Show weather card</string>
+    <string name="home_side_panel_show_wallet_card">Show balance card</string>
+    <string name="home_side_panel_show_hitokoto_card">Show Hitokoto card</string>
     <string name="home_side_panel_card_color_mode">Card color</string>
     <string name="home_side_panel_card_color_mode_follow_theme">Follow theme</string>
     <string name="home_side_panel_card_color_mode_monet">Monet (system wallpaper)</string>

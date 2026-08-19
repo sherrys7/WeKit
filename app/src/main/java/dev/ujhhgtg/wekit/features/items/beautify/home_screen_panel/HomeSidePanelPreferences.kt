@@ -20,6 +20,11 @@ internal object HomeSidePanelPreferenceKeys {
     const val CARD_COLOR_HEX = "home_side_panel_card_color_hex"
     const val SHOW_VIDEO_CHANNELS_SHORTCUT = "home_side_panel_show_video_channels_shortcut"
     const val PHOTO_URI = "home_side_panel_photo_uri"
+    const val SHOW_TIME_CARD = "home_side_panel_show_time_card"
+    const val SHOW_PHOTO_CARD = "home_side_panel_show_photo_card"
+    const val SHOW_WEATHER_CARD = "home_side_panel_show_weather_card"
+    const val SHOW_WALLET_CARD = "home_side_panel_show_wallet_card"
+    const val SHOW_HITOKOTO_CARD = "home_side_panel_show_hitokoto_card"
 }
 
 /** How the side panel cards pick their container color. */
@@ -57,6 +62,12 @@ internal object HomeSidePanelPreferences {
         set(value) = WePrefs.putString(HomeSidePanelPreferenceKeys.CARD_COLOR_HEX, value)
 
     var showVideoChannelsShortcut by prefOption(HomeSidePanelPreferenceKeys.SHOW_VIDEO_CHANNELS_SHORTCUT, true)
+
+    var showTimeCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_TIME_CARD, true)
+    var showPhotoCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_PHOTO_CARD, true)
+    var showWeatherCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_WEATHER_CARD, true)
+    var showWalletCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_WALLET_CARD, true)
+    var showHitokotoCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_HITOKOTO_CARD, true)
 
     /** Image URI for the photo card; null when the user has not picked an image. */
     var photoUri: String?
