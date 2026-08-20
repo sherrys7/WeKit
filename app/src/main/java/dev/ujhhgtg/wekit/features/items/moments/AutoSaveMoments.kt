@@ -212,18 +212,20 @@ object AutoSaveMoments : AutoMomentsBase(),
         val isVideoContent = !isLiveContent &&
             (type == MomentsContentType.VIDEO.typeId || type == MomentsContentType.LITTLE_VIDEO.typeId)
         val isImageContent = !isLiveContent && !isVideoContent && type == MomentsContentType.IMG.typeId
+        val hasMedia = isLiveContent || isVideoContent || isImageContent
         val isLive = isLiveContent && types.livePhotos
         val isVideo = isVideoContent && types.videos
         val isImage = isImageContent && types.images
-        val shouldSaveText = types.text && content.contentText.isNotBlank()
+        val isText = !hasMedia && type == MomentsContentType.TEXT.typeId && types.text && content.contentText.isNotBlank()
 
         var saved = when {
             isLive -> saveLivePhoto(target, relativeDir, content)
             isVideo -> saveVideo(target, relativeDir, content)
             isImage -> saveImages(target, relativeDir, content)
+            isText -> saveText(target, relativeDir, content.contentText)
             else -> false
         }
-        if (shouldSaveText) {
+        if (hasMedia && types.text && content.contentText.isNotBlank()) {
             saved = saveText(target, relativeDir, content.contentText) || saved
         }
         return saved
@@ -241,49 +243,24 @@ object AutoSaveMoments : AutoMomentsBase(),
         var ok = false
         for (index in images.indices) {
             val media = resolved.items.getOrNull(index) ?: continue
-            val baseName = "image_${index + 1}"
-            val imageFileName = "$baseName${extensionOf(media.imagePath)}"
-            if (target.saveFromPath(relativeDir, imageFileName, media.imagePath)) {
+            if (target.saveFromPath(relativeDir, "image_${index + 1}${extensionOf(media.imagePath)}", media.imagePath)) {
                 ok = true
             }
             val videoPath = media.videoPath
-            val videoFileName = videoPath?.takeIf { it.isNotBlank() }?.let { "$baseName${extensionOf(it)}" }
             if (videosReady && !videoPath.isNullOrBlank()) {
-                if (videoFileName != null && target.saveFromPath(relativeDir, videoFileName, videoPath)) {
+                if (target.saveFromPath(relativeDir, "image_${index + 1}${extensionOf(videoPath)}", videoPath)) {
                     ok = true
                 }
             }
-            if (target.saveText(relativeDir, "${baseName}_info.txt", buildLivePhotoInfo(index + 1, imageFileName, videoFileName, resolved.degradedLivePhotos))) {
-                ok = true
-            }
         }
         return ok
-    }
-
-    private fun buildLivePhotoInfo(index: Int, imageFileName: String, videoFileName: String?, degraded: Boolean): String {
-        val builder = StringBuilder()
-        builder.append("类型: 实况图(Live Photo)\n")
-        builder.append("序号: ").append(index).append('\n')
-        builder.append("封面文件: ").append(imageFileName).append('\n')
-        builder.append("视频文件: ").append(videoFileName ?: "无").append('\n')
-        if (degraded) {
-            builder.append("状态: 实况视频未完整定位，已降级为静态图\n")
-        }
-        return builder.toString()
     }
 
     private fun saveVideo(target: SaveTarget, relativeDir: String, content: MomentContent): Boolean {
         val resolved: ResolvedVideo = runBlocking {
             WeMomentsApi.ensureVideoPaths(HostInfo.application, content)
         } ?: return false
-        var ok = false
-        if (target.saveFromPath(relativeDir, "video${extensionOf(resolved.videoPath)}", resolved.videoPath)) {
-            ok = true
-        }
-        if (target.saveFromPath(relativeDir, "video_thumb${extensionOf(resolved.thumbPath)}", resolved.thumbPath)) {
-            ok = true
-        }
-        return ok
+        return target.saveFromPath(relativeDir, "video${extensionOf(resolved.videoPath)}", resolved.videoPath)
     }
 
     private fun saveImages(target: SaveTarget, relativeDir: String, content: MomentContent): Boolean {
