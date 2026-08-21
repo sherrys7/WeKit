@@ -545,6 +545,8 @@
     <string name="feature_beautify_conversation_list_description">Provides card layout, unread highlighting and divider settings for home page conversation list</string>
     <string name="feature_beautify_view_press_effect_name">Customize press effects</string>
     <string name="feature_beautify_view_press_effect_description">Replace the background of View with RippleDrawable (not finished yet)</string>
+    <string name="feature_beautify_home_page_cards_name">Home page cards</string>
+    <string name="feature_beautify_home_page_cards_description">Add calendar, image and music cards to the top of the conversation list</string>
     <string name="feature_center_profile_card_name">Center profile card</string>
     <string name="feature_center_profile_card_description">Data card in the center of the "Me" interface</string>
     <string name="feature_custom_message_bubbles_name">Custom message bubble</string>

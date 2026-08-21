@@ -477,6 +477,8 @@
     <string name="feature_beautify_conversation_list_description">为主页会话列表提供卡片布局、未读突出和分隔线设置</string>
     <string name="feature_beautify_view_press_effect_name">美化组件按下效果</string>
     <string name="feature_beautify_view_press_effect_description">将 View 的背景替换为 RippleDrawable (没写完)</string>
+    <string name="feature_beautify_home_page_cards_name">首页三卡</string>
+    <string name="feature_beautify_home_page_cards_description">在对话列表顶部添加日历卡片、图片卡片和音乐播放器卡片</string>
     <string name="feature_center_profile_card_name">资料卡居中</string>
     <string name="feature_center_profile_card_description">居中「我」界面的资料卡</string>
     <string name="feature_custom_message_bubbles_name">自定义消息气泡</string>
