@@ -35,7 +35,8 @@ object HpcMusicCard {
         var playUrl: String, var lrctxt: String, var mid: String, var platform: String = ""
     ) { var isFavorite = false }
 
-    private const val URL_WY = "https://api.vkeys.cn/v2/music/netease"
+    private const val AURORA_WY = "http://api3.andeer.top/API/music_wy"
+    private const val AURORA_LRC = "http://api3.andeer.top/API/music_wy_geci"
     private const val URL_QQ = "https://api.ygking.top/api"
 
     private const val MODE_SEQUENCE = 0
@@ -639,23 +640,29 @@ object HpcMusicCard {
                         }
                     }
                 } else {
-                    val resp = httpGet("$URL_WY?word=$encoded")
+                    val resp = httpGet("$AURORA_WY?msg=$encoded")
                     if (resp.isNotEmpty()) {
                         val root = JSONObject(resp)
                         if (root.optInt("code") == 200) {
-                            val data = root.optJSONArray("data")
-                            if (data != null) {
+                            val list = root.optJSONObject("data")?.optJSONObject("list")
+                            if (list != null) {
                                 val out = JSONArray()
-                                for (i in 0 until data.length()) {
-                                    val song = data.getJSONObject(i)
+                                val keys = list.keys()
+                                var idx = 1
+                                while (keys.hasNext()) {
+                                    val key = keys.next()
+                                    val display = list.optString(key)
+                                    val dash = display.lastIndexOf("-")
+                                    val name = if (dash > 0) display.substring(0, dash) else display
+                                    val singer = if (dash > 0) display.substring(dash + 1) else ""
                                     out.put(JSONObject().apply {
-                                        put("n", i + 1)
-                                        put("name", song.optString("song"))
-                                        put("singer", song.optString("singer"))
-                                        put("album", song.optString("album"))
+                                        put("n", idx)
+                                        put("name", name)
+                                        put("singer", singer)
                                         put("platform", "wy")
-                                        put("mid", (i + 1).toString())
+                                        put("mid", idx.toString())
                                     })
+                                    idx++
                                 }
                                 resultJson = out.toString()
                             }
@@ -692,6 +699,7 @@ object HpcMusicCard {
                     }
                     var name = ""
                     var singer = ""
+                    var coverUrl = ""
                     val detailResp = httpGet("$URL_QQ/song/detail?mid=$mid")
                     if (detailResp.isNotEmpty()) {
                         val detailRoot = JSONObject(detailResp)
@@ -706,32 +714,39 @@ object HpcMusicCard {
                             }
                         }
                     }
-                    val coverUrl = "$URL_QQ/song/cover?mid=$mid&size=300"
+                    val coverResp = httpGet("$URL_QQ/song/cover?mid=$mid&size=300")
+                    if (coverResp.isNotEmpty()) {
+                        try {
+                            val coverRoot = JSONObject(coverResp)
+                            if (coverRoot.optInt("code") == 0) {
+                                coverUrl = coverRoot.optJSONObject("data")?.optString("url", "") ?: ""
+                            }
+                        } catch (_: Exception) {}
+                    }
                     item = MusicItem(name, singer, coverUrl, musicUrl, lrc, mid, "qq")
                 } else {
-                    val resp = httpGet("$URL_WY?word=$encoded&choose=$mid")
+                    val resp = httpGet("$AURORA_WY?msg=$encoded&b=$mid")
                     if (resp.isNotEmpty()) {
                         val root = JSONObject(resp)
                         if (root.optInt("code") == 200) {
                             val data = root.optJSONObject("data")
                             if (data != null) {
-                                var musicUrl = data.optString("url", "")
-                                if (musicUrl.isEmpty()) musicUrl = data.optString("link", "")
-                                var lrc = ""
+                                val musicUrl = data.optString("music", "")
                                 val id = data.optInt("id", 0)
+                                var lrc = ""
                                 if (id > 0) {
-                                    val lrcResp = httpGet("$URL_WY/lyric?id=$id")
+                                    val lrcResp = httpGet("$AURORA_LRC?id=$id")
                                     if (lrcResp.isNotEmpty()) {
                                         val lrcRoot = JSONObject(lrcResp)
                                         if (lrcRoot.optInt("code") == 200) {
-                                            lrc = lrcRoot.optJSONObject("data")?.optString("lrc", "") ?: ""
+                                            lrc = lrcRoot.optJSONObject("data")?.optJSONObject("lrc")?.optString("lyric", "") ?: ""
                                         }
                                     }
                                 }
                                 item = MusicItem(
                                     data.optString("song", ""),
                                     data.optString("singer", ""),
-                                    data.optString("cover", ""),
+                                    data.optString("picture", ""),
                                     musicUrl, lrc, id.toString(), "wy"
                                 )
                             }
