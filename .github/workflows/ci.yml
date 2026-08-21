@@ -222,7 +222,6 @@ jobs:
           if-no-files-found: error
 
   dex-test:
-    if: false
     runs-on: ubuntu-latest
     outputs:
       reports-available: ${{ steps.report-check.outputs.available }}
