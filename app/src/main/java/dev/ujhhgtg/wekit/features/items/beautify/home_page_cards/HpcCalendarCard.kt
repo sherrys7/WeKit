@@ -1,8 +1,6 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_page_cards
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Typeface
@@ -97,7 +95,6 @@ object HpcCalendarCard {
             val cl = WePrefs.getStringOrDef("lunar_date", "四月十三")
             val cy = WePrefs.getStringOrDef("yi", "疗病 结婚 交易 入仓 求职")
             val cj = WePrefs.getStringOrDef("ji", "安葬 动土 针灸")
-            val cw2 = WePrefs.getStringOrDef("weather_display", "深圳 31°C 多云")
             val chk = WePrefs.getStringOrDef("hitokoto", "愿你走出半生，归来仍是少年")
 
             val lb = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.START }
@@ -134,14 +131,6 @@ object HpcCalendarCard {
                 addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
                 addRule(RelativeLayout.ALIGN_PARENT_TOP)
                 topMargin = (8 * d).toInt()
-            })
-            rb.addView(tv(ctx, cw2, 12, cTitleColor, false).apply {
-                tag = "weather_tv"
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor(cDateBgColor))
-                    cornerRadius = 12 * d
-                }
-                setPadding((8 * d).toInt(), (2 * d).toInt(), (8 * d).toInt(), (2 * d).toInt())
             })
             rb.addView(tv(ctx, "宜 $cy", 12, cYiColor, false).apply { tag = "yi_tv" },
                 LinearLayout.LayoutParams(-2, -2).apply { topMargin = (28 * d).toInt() })
@@ -197,27 +186,6 @@ object HpcCalendarCard {
             if (bold) typeface = Typeface.DEFAULT_BOLD
         }
 
-    private fun loadWeatherLocation(): Pair<String, String> {
-        val useSidebar = WePrefs.getStringOrDef("home_calendar_use_sidebar_weather", "true").toBoolean()
-        if (useSidebar) {
-            val sidebar = WePrefs.getString("home_side_panel_weather_city")
-            if (sidebar != null) {
-                try {
-                    val obj = JSONObject(sidebar)
-                    val lat = obj.optString("latitude", "")
-                    val lon = obj.optString("longitude", "")
-                    if (lat.isNotEmpty() && lon.isNotEmpty()) return lat to lon
-                } catch (_: Exception) {}
-            }
-            val lat = WePrefs.getStringOrDef("wp_lat", "")
-            val lon = WePrefs.getStringOrDef("wp_lon", "")
-            return lat to lon
-        }
-        val lat = WePrefs.getStringOrDef("home_calendar_weather_lat", "")
-        val lon = WePrefs.getStringOrDef("home_calendar_weather_lon", "")
-        return lat to lon
-    }
-
     private fun refreshData(wrapper: LinearLayout?) {
         if (wrapper == null) return
         val c = Calendar.getInstance()
@@ -251,40 +219,6 @@ object HpcCalendarCard {
             }
         }
 
-        try {
-            val (lat, lon) = loadWeatherLocation()
-            if (lat.isNotEmpty() && lon.isNotEmpty()) {
-                val lastTs = WePrefs.getStringOrDef("weather_time", "0").toLongOrNull() ?: 0L
-                val now = System.currentTimeMillis()
-                val expired = now - lastTs > 31 * 60 * 1000L
-                if (expired) {
-                    val wj = httpGet("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code&timezone=auto")
-                    if (wj.isNotEmpty()) {
-                        val root = JSONObject(wj)
-                        val cur = root.optJSONObject("current")
-                        if (cur != null) {
-                            val temp = cur.optDouble("temperature_2m", 0.0)
-                            val code = cur.optInt("weather_code", 0)
-                            val city = WePrefs.getStringOrDef("home_calendar_weather_city", "当前位置")
-                            val wd = "$city ${Math.round(temp)}°C ${wmoToCn(code)}"
-                            WePrefs.putString("weather_display", wd)
-                            WePrefs.putString("weather_time", now.toString())
-                            Handler(Looper.getMainLooper()).post {
-                                (wrapper.findViewWithTag<TextView>("weather_tv"))?.text = wd
-                            }
-                        }
-                    }
-                } else {
-                    val wd = WePrefs.getStringOrDef("weather_display", "")
-                    if (wd.isNotEmpty()) Handler(Looper.getMainLooper()).post {
-                        (wrapper.findViewWithTag<TextView>("weather_tv"))?.text = wd
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            WeLogger.w(TAG, "天气刷新失败: ${e.message}")
-        }
-
         val hk = httpGet("https://api.bi71t5.cn/api/juhe.php")
         if (hk.isNotEmpty()) {
             WePrefs.putString("hitokoto", hk)
@@ -311,32 +245,4 @@ object HpcCalendarCard {
         }
     }
 
-    private fun wmoToCn(code: Int): String = when (code) {
-        0 -> "晴"
-        1 -> "少云"
-        2 -> "多云"
-        3 -> "阴"
-        45, 48 -> "雾"
-        51 -> "小毛毛雨"
-        53 -> "毛毛雨"
-        55 -> "大毛毛雨"
-        56, 57 -> "冻毛毛雨"
-        61 -> "小雨"
-        63 -> "中雨"
-        65 -> "大雨"
-        66, 67 -> "冻雨"
-        71 -> "小雪"
-        73 -> "中雪"
-        75 -> "大雪"
-        77 -> "雪粒"
-        80 -> "小阵雨"
-        81 -> "阵雨"
-        82 -> "强阵雨"
-        85 -> "小阵雪"
-        86 -> "阵雪"
-        95 -> "雷阵雨"
-        96 -> "雷阵雨伴冰雹"
-        99 -> "强雷暴伴冰雹"
-        else -> "未知"
     }
-}

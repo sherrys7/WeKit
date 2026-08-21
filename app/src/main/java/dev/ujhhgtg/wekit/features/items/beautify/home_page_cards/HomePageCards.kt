@@ -24,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Delete
@@ -41,7 +40,6 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
-import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -73,11 +71,6 @@ object HomePageCards : ClickableFeature() {
     var calendarYiColor by prefOption("home_calendar_yi_color", "#4CAF50")
     var calendarJiColor by prefOption("home_calendar_ji_color", "#FF5252")
     var calendarDateBgColor by prefOption("home_calendar_date_bg_color", "#000000")
-
-    var calendarUseSidebarWeather by prefOption("home_calendar_use_sidebar_weather", true)
-    var calendarWeatherLat by prefOption("home_calendar_weather_lat", "")
-    var calendarWeatherLon by prefOption("home_calendar_weather_lon", "")
-    var calendarWeatherCity by prefOption("home_calendar_weather_city", "当前位置")
 
     override fun onEnable() {
         WeLogger.i(TAG, "首页三卡已启用")
@@ -156,10 +149,6 @@ object HomePageCards : ClickableFeature() {
             var yiColor by remember { mutableStateOf(calendarYiColor) }
             var jiColor by remember { mutableStateOf(calendarJiColor) }
             var dateBgColor by remember { mutableStateOf(calendarDateBgColor) }
-            var useSidebar by remember { mutableStateOf(calendarUseSidebarWeather) }
-            var weatherLat by remember { mutableStateOf(calendarWeatherLat) }
-            var weatherLon by remember { mutableStateOf(calendarWeatherLon) }
-            var weatherCity by remember { mutableStateOf(calendarWeatherCity) }
 
             AlertDialogContent(
                 title = { Text("首页三卡设置") },
@@ -293,66 +282,6 @@ object HomePageCards : ClickableFeature() {
                                         calendarDateBgColor = it
                                     },
                                 )
-                            }
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        SegmentedColumn(title = "日历卡天气定位") {
-                            item {
-                                SwitchWidget(
-                                    iconPlaceholder = false,
-                                    title = "跟随侧边栏天气位置",
-                                    description = "关闭后可手动设置经纬度",
-                                    checked = useSidebar,
-                                    onCheckedChange = {
-                                        useSidebar = it
-                                        calendarUseSidebarWeather = it
-                                    },
-                                )
-                            }
-                            if (!useSidebar) {
-                                item {
-                                    TextFieldDialogWidget(
-                                        title = "纬度",
-                                        value = weatherLat,
-                                        onValueChange = {
-                                            weatherLat = it
-                                            calendarWeatherLat = it
-                                        },
-                                        dialogTitle = "输入纬度",
-                                        confirmLabel = "确定",
-                                        dismissLabel = "取消",
-                                        keyboardType = KeyboardType.Decimal,
-                                    )
-                                }
-                                item {
-                                    TextFieldDialogWidget(
-                                        title = "经度",
-                                        value = weatherLon,
-                                        onValueChange = {
-                                            weatherLon = it
-                                            calendarWeatherLon = it
-                                        },
-                                        dialogTitle = "输入经度",
-                                        confirmLabel = "确定",
-                                        dismissLabel = "取消",
-                                        keyboardType = KeyboardType.Decimal,
-                                    )
-                                }
-                                item {
-                                    TextFieldDialogWidget(
-                                        title = "城市显示名称",
-                                        value = weatherCity,
-                                        onValueChange = {
-                                            weatherCity = it
-                                            calendarWeatherCity = it
-                                        },
-                                        dialogTitle = "输入城市名称",
-                                        confirmLabel = "确定",
-                                        dismissLabel = "取消",
-                                    )
-                                }
                             }
                         }
 
