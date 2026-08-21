@@ -5,7 +5,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ListView
-import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import java.lang.reflect.Method
 
@@ -28,18 +27,24 @@ object HpcCardManager {
                 setPadding((8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt(), (8 * d).toInt())
             }
 
+            val enabled = mapOf(
+                "calendar" to (HomePageCards.calendarCardEnabled && HpcCalendarCard.getCard(act) != null),
+                "image" to (HomePageCards.imageCardEnabled && HpcImageCard.getCard(act) != null),
+                "music" to (HomePageCards.musicCardEnabled && HpcMusicCard.getCard(act) != null),
+            )
+            val cards = mapOf(
+                "calendar" to HpcCalendarCard.getCard(act),
+                "image" to HpcImageCard.getCard(act),
+                "music" to HpcMusicCard.getCard(act),
+            )
+
+            val order = HomePageCards.cardsOrder.split(",").filter { it.isNotEmpty() }
             var added = 0
-            if (WePrefs.getBoolOrDef("home_calendar_card", true)) {
-                addChild(root, HpcCalendarCard.getCard(act), d, added == 0)
-                added++
-            }
-            if (WePrefs.getBoolOrDef("home_image_card", true)) {
-                addChild(root, HpcImageCard.getCard(act), d, added == 0)
-                added++
-            }
-            if (WePrefs.getBoolOrDef("home_music_card", true)) {
-                addChild(root, HpcMusicCard.getCard(act), d, added == 0)
-                added++
+            for (id in order) {
+                if (enabled[id] == true) {
+                    addChild(root, cards[id], d, added == 0)
+                    added++
+                }
             }
 
             if (root.childCount == 0) return@post
