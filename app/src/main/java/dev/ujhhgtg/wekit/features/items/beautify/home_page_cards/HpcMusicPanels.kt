@@ -136,7 +136,7 @@ object HpcMusicPanels {
                 gravity = Gravity.CENTER
             })
             titleBlock.addView(TextView(ctx).apply {
-                text = currentSong.artist + " · 网易云"
+                text = currentSong.artist + " · " + platLabel(currentSong.platform)
                 textSize = 13f
                 setTextColor(Color.parseColor("#666666"))
                 gravity = Gravity.CENTER
@@ -342,7 +342,7 @@ object HpcMusicPanels {
                                 gravity = Gravity.CENTER
                             })
                             titleBlock.addView(TextView(ctx).apply {
-                                text = song.artist + " · 网易云"
+                                text = song.artist + " · " + platLabel(song.platform)
                                 textSize = 13f
                                 setTextColor(Color.parseColor("#666666"))
                                 gravity = Gravity.CENTER
@@ -688,7 +688,7 @@ object HpcMusicPanels {
                         addBtn.setOnClickListener {
                             searchDialog.dismiss()
                             M.toast("正在获取歌曲...")
-                            M.getTrackDetail(keyword, n, plat) { item ->
+                            M.getTrackDetail(keyword, obj.optString("mid"), plat) { item ->
                                 if (item == null) { M.toast("获取失败"); return@getTrackDetail }
                                 if (item.playUrl.isEmpty()) { M.toast("该歌曲暂无可用播放链接"); return@getTrackDetail }
                                 M.addToPlaylistAndPlay(item)
@@ -1138,5 +1138,11 @@ object HpcMusicPanels {
     private fun formatTime(millis: Int): String {
         val ts = millis / 1000
         return "%02d:%02d".format(ts / 60, ts % 60)
+    }
+
+    private fun platLabel(platform: String): String = when (platform) {
+        "qq" -> "QQ音乐"
+        "wy" -> "网易云音乐"
+        else -> "音乐"
     }
 }

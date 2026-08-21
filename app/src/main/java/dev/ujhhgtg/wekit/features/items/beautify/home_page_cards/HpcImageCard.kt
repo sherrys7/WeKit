@@ -10,6 +10,9 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import coil3.load
+import coil3.request.crossfade
+import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 
 object HpcImageCard {
@@ -47,17 +50,20 @@ object HpcImageCard {
                 }
             }
 
-            val iv = ImageView(ctx).apply {
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setBackgroundColor(Color.parseColor("#FFE0E0E0"))
+            val bgImage = WePrefs.getString("home_image_card_bg_image")
+            if (bgImage != null) {
+                val iv = ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                }
+                card.addView(iv, FrameLayout.LayoutParams(-1, -1))
+                iv.load(bgImage) { crossfade(true) }
+            } else {
+                val iv = ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    setBackgroundColor(Color.parseColor("#FFFFFFFF"))
+                }
+                card.addView(iv, FrameLayout.LayoutParams(-1, -1))
             }
-            card.addView(iv, FrameLayout.LayoutParams(-1, -1))
-
-            val overlay = GradientDrawable().apply {
-                setColor(Color.parseColor("#33000000"))
-                cornerRadius = r
-            }
-            card.background = overlay
 
             wrapper.addView(card, LinearLayout.LayoutParams(cw, ch))
             cachedCard = wrapper

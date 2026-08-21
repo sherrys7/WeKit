@@ -1,7 +1,10 @@
 package dev.ujhhgtg.wekit.features.items.beautify.home_page_cards
 
 import android.app.Activity
+import android.content.Intent
 import androidx.activity.ComponentActivity
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,10 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,20 +24,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_down
 import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_up
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
+import dev.ujhhgtg.wekit.utils.nul
 
 @Feature(
     id = "首页三卡",
@@ -54,6 +63,21 @@ object HomePageCards : ClickableFeature() {
     var imageCardEnabled by prefOption("home_image_card", true)
     var musicCardEnabled by prefOption("home_music_card", true)
     var cardsOrder by prefOption("home_cards_order", "calendar,image,music")
+
+    var calendarBgColor by prefOption("home_calendar_bg_color", "#FFFFFFFF")
+    var calendarBgImage by prefOption("home_calendar_bg_image", nul<String>())
+    var imageCardBgImage by prefOption("home_image_card_bg_image", nul<String>())
+
+    var calendarTitleColor by prefOption("home_calendar_title_color", "#FFFFFF")
+    var calendarSubtitleColor by prefOption("home_calendar_subtitle_color", "#E0E0E0")
+    var calendarYiColor by prefOption("home_calendar_yi_color", "#4CAF50")
+    var calendarJiColor by prefOption("home_calendar_ji_color", "#FF5252")
+    var calendarDateBgColor by prefOption("home_calendar_date_bg_color", "#000000")
+
+    var calendarUseSidebarWeather by prefOption("home_calendar_use_sidebar_weather", true)
+    var calendarWeatherLat by prefOption("home_calendar_weather_lat", "")
+    var calendarWeatherLon by prefOption("home_calendar_weather_lon", "")
+    var calendarWeatherCity by prefOption("home_calendar_weather_city", "当前位置")
 
     override fun onEnable() {
         WeLogger.i(TAG, "首页三卡已启用")
@@ -80,12 +104,62 @@ object HomePageCards : ClickableFeature() {
         HpcCardManager.insertCards(act)
     }
 
+    private fun selectCalendarImage(context: ComponentActivity) {
+        TransparentActivity.launch(context) {
+            val launcher = registerForActivityResult(
+                ActivityResultContracts.PickVisualMedia()
+            ) { uri ->
+                finish()
+                if (uri == null) return@registerForActivityResult
+                val cr = HostInfo.application.contentResolver
+                runCatching {
+                    cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }.onFailure {
+                    WeLogger.w(TAG, "failed to take persistable uri permission", it)
+                }
+                calendarBgImage = uri.toString()
+            }
+            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+    }
+
+    private fun selectImageCardImage(context: ComponentActivity) {
+        TransparentActivity.launch(context) {
+            val launcher = registerForActivityResult(
+                ActivityResultContracts.PickVisualMedia()
+            ) { uri ->
+                finish()
+                if (uri == null) return@registerForActivityResult
+                val cr = HostInfo.application.contentResolver
+                runCatching {
+                    cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }.onFailure {
+                    WeLogger.w(TAG, "failed to take persistable uri permission", it)
+                }
+                imageCardBgImage = uri.toString()
+            }
+            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var calEnabled by remember { mutableStateOf(calendarCardEnabled) }
             var imgEnabled by remember { mutableStateOf(imageCardEnabled) }
             var musEnabled by remember { mutableStateOf(musicCardEnabled) }
             var order by remember { mutableStateOf(cardsOrder) }
+            var calBgColor by remember { mutableStateOf(calendarBgColor) }
+            var calHasImage by remember { mutableStateOf(calendarBgImage != null) }
+            var imgHasImage by remember { mutableStateOf(imageCardBgImage != null) }
+            var titleColor by remember { mutableStateOf(calendarTitleColor) }
+            var subtitleColor by remember { mutableStateOf(calendarSubtitleColor) }
+            var yiColor by remember { mutableStateOf(calendarYiColor) }
+            var jiColor by remember { mutableStateOf(calendarJiColor) }
+            var dateBgColor by remember { mutableStateOf(calendarDateBgColor) }
+            var useSidebar by remember { mutableStateOf(calendarUseSidebarWeather) }
+            var weatherLat by remember { mutableStateOf(calendarWeatherLat) }
+            var weatherLon by remember { mutableStateOf(calendarWeatherLon) }
+            var weatherCity by remember { mutableStateOf(calendarWeatherCity) }
 
             AlertDialogContent(
                 title = { Text("首页三卡设置") },
@@ -108,7 +182,7 @@ object HomePageCards : ClickableFeature() {
                                 SwitchWidget(
                                     iconPlaceholder = false,
                                     title = "图片卡",
-                                    description = "圆角背景图",
+                                    description = "自定义背景图",
                                     checked = imgEnabled,
                                     onCheckedChange = {
                                         imgEnabled = it
@@ -125,6 +199,185 @@ object HomePageCards : ClickableFeature() {
                                     onCheckedChange = {
                                         musEnabled = it
                                         musicCardEnabled = it
+                                    },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SegmentedColumn(title = "日历卡背景") {
+                            item {
+                                ColorPickerWidget(
+                                    title = "背景颜色",
+                                    value = calBgColor,
+                                    onValueChange = {
+                                        calBgColor = it
+                                        calendarBgColor = it
+                                    },
+                                )
+                            }
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = "背景图片",
+                                    description = if (calHasImage) "已选择图片" else "未设置（使用纯色背景）",
+                                    onClick = { selectCalendarImage(context) },
+                                    trailingContent = {
+                                        if (calHasImage) {
+                                            IconButton(onClick = {
+                                                calendarBgImage = null
+                                                calHasImage = false
+                                            }) {
+                                                Icon(
+                                                    MaterialSymbols.Outlined.Delete,
+                                                    contentDescription = "清除图片",
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SegmentedColumn(title = "日历卡字体颜色") {
+                            item {
+                                ColorPickerWidget(
+                                    title = "年月标题 / 日期数字 / 天气",
+                                    value = titleColor,
+                                    onValueChange = {
+                                        titleColor = it
+                                        calendarTitleColor = it
+                                    },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = "星期 / 农历 / 进度 / 一言",
+                                    value = subtitleColor,
+                                    onValueChange = {
+                                        subtitleColor = it
+                                        calendarSubtitleColor = it
+                                    },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = "宜 文字颜色",
+                                    value = yiColor,
+                                    onValueChange = {
+                                        yiColor = it
+                                        calendarYiColor = it
+                                    },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = "忌 文字颜色",
+                                    value = jiColor,
+                                    onValueChange = {
+                                        jiColor = it
+                                        calendarJiColor = it
+                                    },
+                                )
+                            }
+                            item {
+                                ColorPickerWidget(
+                                    title = "日期数字背景色",
+                                    value = dateBgColor,
+                                    onValueChange = {
+                                        dateBgColor = it
+                                        calendarDateBgColor = it
+                                    },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SegmentedColumn(title = "日历卡天气定位") {
+                            item {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = "跟随侧边栏天气位置",
+                                    description = "关闭后可手动设置经纬度",
+                                    checked = useSidebar,
+                                    onCheckedChange = {
+                                        useSidebar = it
+                                        calendarUseSidebarWeather = it
+                                    },
+                                )
+                            }
+                            if (!useSidebar) {
+                                item {
+                                    TextFieldDialogWidget(
+                                        title = "纬度",
+                                        value = weatherLat,
+                                        onValueChange = {
+                                            weatherLat = it
+                                            calendarWeatherLat = it
+                                        },
+                                        dialogTitle = "输入纬度",
+                                        confirmLabel = "确定",
+                                        dismissLabel = "取消",
+                                        keyboardType = KeyboardType.Decimal,
+                                    )
+                                }
+                                item {
+                                    TextFieldDialogWidget(
+                                        title = "经度",
+                                        value = weatherLon,
+                                        onValueChange = {
+                                            weatherLon = it
+                                            calendarWeatherLon = it
+                                        },
+                                        dialogTitle = "输入经度",
+                                        confirmLabel = "确定",
+                                        dismissLabel = "取消",
+                                        keyboardType = KeyboardType.Decimal,
+                                    )
+                                }
+                                item {
+                                    TextFieldDialogWidget(
+                                        title = "城市显示名称",
+                                        value = weatherCity,
+                                        onValueChange = {
+                                            weatherCity = it
+                                            calendarWeatherCity = it
+                                        },
+                                        dialogTitle = "输入城市名称",
+                                        confirmLabel = "确定",
+                                        dismissLabel = "取消",
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SegmentedColumn(title = "图片卡背景") {
+                            item {
+                                BaseWidget(
+                                    iconPlaceholder = false,
+                                    title = "背景图片",
+                                    description = if (imgHasImage) "已选择图片" else "未设置（使用纯色背景）",
+                                    onClick = { selectImageCardImage(context) },
+                                    trailingContent = {
+                                        if (imgHasImage) {
+                                            IconButton(onClick = {
+                                                imageCardBgImage = null
+                                                imgHasImage = false
+                                            }) {
+                                                Icon(
+                                                    MaterialSymbols.Outlined.Delete,
+                                                    contentDescription = "清除图片",
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                            }
+                                        }
                                     },
                                 )
                             }

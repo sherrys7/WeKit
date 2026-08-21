@@ -17,6 +17,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import coil3.load
+import coil3.request.crossfade
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.json.JSONObject
@@ -58,15 +60,22 @@ object HpcCalendarCard {
                 }
             }
 
-            card.addView(View(ctx).apply {
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#FF1A237E"))
-                    cornerRadius = r
+            val bgImage = WePrefs.getString("home_calendar_bg_image")
+            if (bgImage != null) {
+                val iv = ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
                 }
-            }, FrameLayout.LayoutParams(-1, -1))
-
-            card.addView(View(ctx).apply { setBackgroundColor(Color.parseColor("#40000000")) },
-                FrameLayout.LayoutParams(-1, -1))
+                card.addView(iv, FrameLayout.LayoutParams(-1, -1))
+                iv.load(bgImage) { crossfade(true) }
+            } else {
+                val bgColor = WePrefs.getStringOrDef("home_calendar_bg_color", "#FFFFFFFF")
+                card.addView(View(ctx).apply {
+                    background = GradientDrawable().apply {
+                        setColor(Color.parseColor(bgColor))
+                        cornerRadius = r
+                    }
+                }, FrameLayout.LayoutParams(-1, -1))
+            }
 
             val ct = RelativeLayout(ctx).apply {
                 setPadding(pad, pad, pad, pad)
@@ -97,12 +106,18 @@ object HpcCalendarCard {
                 addRule(RelativeLayout.ALIGN_PARENT_TOP)
                 topMargin = (8 * d).toInt()
             })
-            lb.addView(tv(ctx, "${yr}年${mo}月", 16, "#FFFFFF", true))
-            lb.addView(tv(ctx, wds[wi], 14, "#E0E0E0", false))
-            val td = tv(ctx, dy.toString(), 36, "#FFFFFF", true).apply {
+            val cTitleColor = WePrefs.getStringOrDef("home_calendar_title_color", "#FFFFFF")
+            val cSubColor = WePrefs.getStringOrDef("home_calendar_subtitle_color", "#E0E0E0")
+            val cYiColor = WePrefs.getStringOrDef("home_calendar_yi_color", "#4CAF50")
+            val cJiColor = WePrefs.getStringOrDef("home_calendar_ji_color", "#FF5252")
+            val cDateBgColor = WePrefs.getStringOrDef("home_calendar_date_bg_color", "#000000")
+
+            lb.addView(tv(ctx, "${yr}年${mo}月", 16, cTitleColor, true))
+            lb.addView(tv(ctx, wds[wi], 14, cSubColor, false))
+            val td = tv(ctx, dy.toString(), 36, cTitleColor, true).apply {
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.RECTANGLE
-                    setColor(Color.parseColor("#000000"))
+                    setColor(Color.parseColor(cDateBgColor))
                     cornerRadius = 8 * d
                 }
                 gravity = Gravity.CENTER
@@ -110,8 +125,8 @@ object HpcCalendarCard {
             val ds = (50 * d).toInt()
             lb.addView(td, LinearLayout.LayoutParams(ds, ds))
             val lr = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-            lr.addView(tv(ctx, "$cl 第${wk}周", 14, "#E0E0E0", false).apply { tag = "lunar_tv" })
-            lr.addView(tv(ctx, "本月进度 $pct%", 12, "#E0E0E0", false).apply { setPadding((12 * d).toInt(), 0, 0, 0) })
+            lr.addView(tv(ctx, "$cl 第${wk}周", 14, cSubColor, false).apply { tag = "lunar_tv" })
+            lr.addView(tv(ctx, "本月进度 $pct%", 12, cSubColor, false).apply { setPadding((12 * d).toInt(), 0, 0, 0) })
             lb.addView(lr, LinearLayout.LayoutParams(-2, -2).apply { topMargin = (4 * d).toInt() })
 
             val rb = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
@@ -120,20 +135,20 @@ object HpcCalendarCard {
                 addRule(RelativeLayout.ALIGN_PARENT_TOP)
                 topMargin = (8 * d).toInt()
             })
-            rb.addView(tv(ctx, cw2, 12, "#FFFFFF", false).apply {
+            rb.addView(tv(ctx, cw2, 12, cTitleColor, false).apply {
                 tag = "weather_tv"
                 background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#4CAF50"))
+                    setColor(Color.parseColor(cDateBgColor))
                     cornerRadius = 12 * d
                 }
                 setPadding((8 * d).toInt(), (2 * d).toInt(), (8 * d).toInt(), (2 * d).toInt())
             })
-            rb.addView(tv(ctx, "宜 $cy", 12, "#4CAF50", false).apply { tag = "yi_tv" },
+            rb.addView(tv(ctx, "宜 $cy", 12, cYiColor, false).apply { tag = "yi_tv" },
                 LinearLayout.LayoutParams(-2, -2).apply { topMargin = (28 * d).toInt() })
-            rb.addView(tv(ctx, "忌 $cj", 12, "#FF5252", false).apply { tag = "ji_tv" },
+            rb.addView(tv(ctx, "忌 $cj", 12, cJiColor, false).apply { tag = "ji_tv" },
                 LinearLayout.LayoutParams(-2, -2).apply { topMargin = (4 * d).toInt() })
 
-            ct.addView(tv(ctx, chk, 12, "#E0E0E0", false).apply {
+            ct.addView(tv(ctx, chk, 12, cSubColor, false).apply {
                 tag = "hitokoto_tv"
                 gravity = Gravity.CENTER
                 maxWidth = cw - pad * 2
@@ -182,6 +197,27 @@ object HpcCalendarCard {
             if (bold) typeface = Typeface.DEFAULT_BOLD
         }
 
+    private fun loadWeatherLocation(): Pair<String, String> {
+        val useSidebar = WePrefs.getStringOrDef("home_calendar_use_sidebar_weather", "true").toBoolean()
+        if (useSidebar) {
+            val sidebar = WePrefs.getString("home_side_panel_weather_city")
+            if (sidebar != null) {
+                try {
+                    val obj = JSONObject(sidebar)
+                    val lat = obj.optString("latitude", "")
+                    val lon = obj.optString("longitude", "")
+                    if (lat.isNotEmpty() && lon.isNotEmpty()) return lat to lon
+                } catch (_: Exception) {}
+            }
+            val lat = WePrefs.getStringOrDef("wp_lat", "")
+            val lon = WePrefs.getStringOrDef("wp_lon", "")
+            return lat to lon
+        }
+        val lat = WePrefs.getStringOrDef("home_calendar_weather_lat", "")
+        val lon = WePrefs.getStringOrDef("home_calendar_weather_lon", "")
+        return lat to lon
+    }
+
     private fun refreshData(wrapper: LinearLayout?) {
         if (wrapper == null) return
         val c = Calendar.getInstance()
@@ -216,8 +252,7 @@ object HpcCalendarCard {
         }
 
         try {
-            val lat = WePrefs.getStringOrDef("wp_lat", "")
-            val lon = WePrefs.getStringOrDef("wp_lon", "")
+            val (lat, lon) = loadWeatherLocation()
             if (lat.isNotEmpty() && lon.isNotEmpty()) {
                 val lastTs = WePrefs.getStringOrDef("weather_time", "0").toLongOrNull() ?: 0L
                 val now = System.currentTimeMillis()
@@ -230,7 +265,7 @@ object HpcCalendarCard {
                         if (cur != null) {
                             val temp = cur.optDouble("temperature_2m", 0.0)
                             val code = cur.optInt("weather_code", 0)
-                            val city = WePrefs.getStringOrDef("weather_city", "当前位置")
+                            val city = WePrefs.getStringOrDef("home_calendar_weather_city", "当前位置")
                             val wd = "$city ${Math.round(temp)}°C ${wmoToCn(code)}"
                             WePrefs.putString("weather_display", wd)
                             WePrefs.putString("weather_time", now.toString())
