@@ -1,25 +1,20 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import dev.ujhhgtg.wekit.ui.utils.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Info
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
+import dev.ujhhgtg.wekit.ui.content.m3.lazySegmentedItems
 import dev.ujhhgtg.wekit.ui.utils.ChatInfoIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -63,23 +58,19 @@ object DisplayMessageDetails : SwitchFeature(),
                     msgInfo.content
 
                 showComposeDialog(view.context) {
-                    val localizedContext = LocalContext.current
+                    val localizedContext = LocalWeKitLocalizedContext.current
                     AlertDialogContent(
                         title = { Text(stringResource(R.string.chat_message_details_title)) },
                         text = {
-                            LazyColumn(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.large)
-                            ) {
-                                items(displayItems) { (key, value) ->
-                                    ListItem(
-                                        modifier = Modifier.clickable {
+                            LazyColumn {
+                                lazySegmentedItems(displayItems, key = { it.first }) { (key, value) ->
+                                    BaseWidget(
+                                        title = key,
+                                        description = value,
+                                        onClick = {
                                             copyToClipboard(value)
                                             showToast(localizedContext.getString(R.string.chat_message_details_copied))
                                         },
-                                        supportingContent = { Text(value) },
-                                        content = { Text(key) },
                                     )
                                 }
                             }

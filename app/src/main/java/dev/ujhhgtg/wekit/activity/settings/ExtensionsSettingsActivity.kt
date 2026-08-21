@@ -45,8 +45,8 @@ import dev.ujhhgtg.wekit.extensions.ExtensionPackState.UpdateAvailable
 import dev.ujhhgtg.wekit.extensions.ExtensionPackState.Verifying
 import dev.ujhhgtg.wekit.extensions.ExtensionPacks
 import dev.ujhhgtg.wekit.i18n.LocaleResourceMode
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleProvider
-import dev.ujhhgtg.wekit.ui.agent.settings.AgentActionRow
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentConfirmDialog
 import dev.ujhhgtg.wekit.ui.agent.settings.AgentListActionButton
 import dev.ujhhgtg.wekit.ui.content.m3.BaseItemContainer
@@ -121,6 +121,7 @@ private fun PackGroup(pack: ExtensionPack) {
     val state by ExtensionPacks.stateFlow(pack).collectAsState()
     var confirmDelete by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val localizedContext = LocalWeKitLocalizedContext.current
 
     SegmentedColumn {
         item(key = "info") {
@@ -163,7 +164,12 @@ private fun PackGroup(pack: ExtensionPack) {
             }
             else -> item(key = "actions") {
                 BaseItemContainer {
-                    AgentActionRow {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         AgentListActionButton(
                             label = stringResource(
                                 when (s) {
@@ -201,7 +207,7 @@ private fun PackGroup(pack: ExtensionPack) {
                 if (!ExtensionPacks.delete(pack)) {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.extensions_pack_in_use),
+                        localizedContext.getString(R.string.extensions_pack_in_use),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }

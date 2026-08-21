@@ -141,6 +141,11 @@
 
 ## Testing Strategy
 
+- These repository-specific testing constraints take precedence over the generic Superpowers
+  skills' TDD workflow. Do not add tests for host hooks, Compose UI, WeChat runtime behavior, or
+  database integration when they fall outside the qualifying conditions below; use the required
+  build, static checks, and manual host validation instead.
+
 - TDD and new automated tests are allowed only when all core logic under test lives in WeKit,
   has low coupling to WeChat, and does not depend on WeChat host classes, runtime state, UI, or
   behavior.
@@ -190,6 +195,11 @@
   Code that is correct does not need the defense; code that is wrong must throw loudly and get caught by either `HookUtils`' or code's own exception catcher, and these
   guards only swallow the exception and hide the real error. Defenses and guards that are reasonable should still exist.
 - The libraries `DexKit` and `reflekt` are NOT something you are familiar with. Do NOT hallucinate their API surfaces. Read their code before using them.
+- In Compose, `LocalContext` always means the platform context and is never localized by WeKit.
+  Use standard Compose resource APIs for composable text and `LocalWeKitLocalizedContext` only
+  for imperative WeKit resource reads. Mixed platform/resource operations must read both locals.
+  Use `LocalActivity.current` for Activity-only APIs, and never add AndroidX owner forwarding to
+  `WeKitLocaleProvider`.
 
 ## Material 3 UI Standards
 

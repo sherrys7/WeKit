@@ -6,40 +6,16 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 
 internal object HomeSidePanelPreferenceKeys {
+    const val LAYOUT = "home_side_panel_layout"
+    const val CARD_WEATHER_CACHE_PREFIX = "home_side_panel_card_weather_cache_"
+    const val CARD_HITOKOTO_CACHE_PREFIX = "home_side_panel_card_hitokoto_cache_"
     const val WEATHER_CITY = "home_side_panel_weather_city"
     const val WEATHER_LAST_SUCCESS = "home_side_panel_weather_last_success"
-    const val WEATHER_PROFILE_INITIALIZED = "home_side_panel_weather_profile_initialized"
-    const val WEATHER_PROFILE_ACCOUNT = "home_side_panel_weather_profile_account"
-    const val WEATHER_LAST_ERROR = "home_side_panel_weather_last_error"
     const val HITOKOTO_SETTINGS = "home_side_panel_hitokoto_settings"
     const val HITOKOTO_LAST_SUCCESS = "home_side_panel_hitokoto_last_success"
     const val SHOW_TOOLBAR_PROFILE = "home_side_panel_show_toolbar_profile"
     const val HIDE_WECHAT_TITLE = "home_side_panel_hide_wechat_title"
     const val HIDE_WALLET_BALANCE = "home_side_panel_hide_wallet_balance"
-    const val CARD_COLOR_MODE = "home_side_panel_card_color_mode"
-    const val CARD_COLOR_HEX = "home_side_panel_card_color_hex"
-    const val SHOW_VIDEO_CHANNELS_SHORTCUT = "home_side_panel_show_video_channels_shortcut"
-    const val PHOTO_URI = "home_side_panel_photo_uri"
-    const val SHOW_TIME_CARD = "home_side_panel_show_time_card"
-    const val SHOW_PHOTO_CARD = "home_side_panel_show_photo_card"
-    const val SHOW_WEATHER_CARD = "home_side_panel_show_weather_card"
-    const val SHOW_WALLET_CARD = "home_side_panel_show_wallet_card"
-    const val SHOW_HITOKOTO_CARD = "home_side_panel_show_hitokoto_card"
-}
-
-/** How the side panel cards pick their container color. */
-internal enum class HomeSidePanelCardColorMode {
-    /** Follow the current theme (WeChat green or the module theme color). */
-    FOLLOW_THEME,
-    /** Derive from the system wallpaper / dynamic color when available. */
-    MONET,
-    /** Use a user-entered hex color. */
-    CUSTOM_HEX;
-
-    companion object {
-        fun fromStored(value: String?): HomeSidePanelCardColorMode =
-            entries.find { it.name == value } ?: FOLLOW_THEME
-    }
 }
 
 internal object HomeSidePanelPreferences {
@@ -48,69 +24,31 @@ internal object HomeSidePanelPreferences {
 
     var showToolbarProfile by prefOption(HomeSidePanelPreferenceKeys.SHOW_TOOLBAR_PROFILE, true)
     var hideWeChatTitle by prefOption(HomeSidePanelPreferenceKeys.HIDE_WECHAT_TITLE, false)
-    var hideWalletBalance by prefOption(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
 
-    var cardColorMode: HomeSidePanelCardColorMode
-        get() = HomeSidePanelCardColorMode.fromStored(
-            WePrefs.getString(HomeSidePanelPreferenceKeys.CARD_COLOR_MODE)
-        )
-        set(value) = WePrefs.putString(HomeSidePanelPreferenceKeys.CARD_COLOR_MODE, value.name)
-
-    /** Custom hex container color, e.g. `#AARRGGBB`; blank when unset. */
-    var cardColorHex: String
-        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.CARD_COLOR_HEX) ?: ""
-        set(value) = WePrefs.putString(HomeSidePanelPreferenceKeys.CARD_COLOR_HEX, value)
-
-    var showVideoChannelsShortcut by prefOption(HomeSidePanelPreferenceKeys.SHOW_VIDEO_CHANNELS_SHORTCUT, true)
-
-    var showTimeCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_TIME_CARD, true)
-    var showPhotoCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_PHOTO_CARD, true)
-    var showWeatherCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_WEATHER_CARD, true)
-    var showWalletCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_WALLET_CARD, true)
-    var showHitokotoCard by prefOption(HomeSidePanelPreferenceKeys.SHOW_HITOKOTO_CARD, true)
-
-    /** Image URI for the photo card; null when the user has not picked an image. */
-    var photoUri: String?
-        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.PHOTO_URI)
+    var layoutRaw: String?
+        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.LAYOUT)
         set(value) {
             if (value == null) {
-                WePrefs.remove(HomeSidePanelPreferenceKeys.PHOTO_URI)
+                WePrefs.remove(HomeSidePanelPreferenceKeys.LAYOUT)
             } else {
-                WePrefs.putString(HomeSidePanelPreferenceKeys.PHOTO_URI, value)
+                WePrefs.putString(HomeSidePanelPreferenceKeys.LAYOUT, value)
             }
         }
 
-    var selectedWeatherCity: WeatherCity
+    val legacySelectedWeatherCity: WeatherCity
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_CITY) ?: DEFAULT_WEATHER_CITY
-        set(value) = encode(HomeSidePanelPreferenceKeys.WEATHER_CITY, value)
 
-    var weatherLastSuccess: WeatherSnapshot?
+    val legacyHideWalletBalance: Boolean
+        get() = WePrefs.getBoolOrDef(HomeSidePanelPreferenceKeys.HIDE_WALLET_BALANCE, false)
+
+    val legacyWeatherLastSuccess: WeatherSnapshot?
         get() = decode(HomeSidePanelPreferenceKeys.WEATHER_LAST_SUCCESS)
-        set(value) = setNullable(HomeSidePanelPreferenceKeys.WEATHER_LAST_SUCCESS, value)
 
-    var weatherProfileInitialized: Boolean
-        get() = WePrefs.getBoolOrDef(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_INITIALIZED, false)
-        set(value) {
-            WePrefs.putBool(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_INITIALIZED, value)
-        }
-
-    var weatherLastError: String?
-        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.WEATHER_LAST_ERROR)
-        set(value) {
-            if (value == null) {
-                WePrefs.remove(HomeSidePanelPreferenceKeys.WEATHER_LAST_ERROR)
-            } else {
-                WePrefs.putString(HomeSidePanelPreferenceKeys.WEATHER_LAST_ERROR, value)
-            }
-        }
-
-    var hitokotoSettings: HitokotoSettings
+    val legacyHitokotoSettings: HitokotoSettings
         get() = decode(HomeSidePanelPreferenceKeys.HITOKOTO_SETTINGS) ?: HitokotoSettings()
-        set(value) = encode(HomeSidePanelPreferenceKeys.HITOKOTO_SETTINGS, value)
 
-    var hitokotoLastSuccess: HitokotoSnapshot?
+    val legacyHitokotoLastSuccess: HitokotoSnapshot?
         get() = decode(HomeSidePanelPreferenceKeys.HITOKOTO_LAST_SUCCESS)
-        set(value) = setNullable(HomeSidePanelPreferenceKeys.HITOKOTO_LAST_SUCCESS, value)
 
     private inline fun <reified T> decode(key: String): T? {
         val raw = WePrefs.getString(key) ?: return null
@@ -119,27 +57,4 @@ internal object HomeSidePanelPreferences {
             .getOrNull()
     }
 
-    var weatherProfileAccount: String?
-        get() = WePrefs.getString(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT)
-        set(value) {
-            if (value.isNullOrBlank()) {
-                WePrefs.remove(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT)
-            } else {
-                WePrefs.putString(HomeSidePanelPreferenceKeys.WEATHER_PROFILE_ACCOUNT, value)
-            }
-        }
-
-    private inline fun <reified T> encode(key: String, value: T) {
-        runCatching { DefaultJson.encodeToString(value) }
-            .onSuccess { WePrefs.putString(key, it) }
-            .onFailure { WeLogger.w(TAG, "failed to encode preference $key", it) }
-    }
-
-    private inline fun <reified T> setNullable(key: String, value: T?) {
-        if (value == null) {
-            WePrefs.remove(key)
-        } else {
-            encode(key, value)
-        }
-    }
 }

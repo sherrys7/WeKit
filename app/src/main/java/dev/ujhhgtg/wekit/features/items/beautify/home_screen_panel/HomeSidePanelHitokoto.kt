@@ -6,11 +6,10 @@ import dev.ujhhgtg.wekit.features.items.beautify.beautifyText
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.serialization.DefaultJson
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -24,7 +23,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
 import java.net.SocketTimeoutException
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -69,7 +68,7 @@ internal sealed interface HitokotoResult {
     data class Error(val message: BeautifyText, val cached: HitokotoSnapshot?) : HitokotoResult
 }
 
-private fun validateHitokotoSettings(
+internal fun validateHitokotoSettings(
     minLength: Int?,
     maxLength: Int?,
     categories: Set<String> = HITOKOTO_CATEGORY_CODES,
@@ -114,82 +113,58 @@ internal class HomeSidePanelHitokoto(
     private val client: OkHttpClient,
 ) {
 
-    private val inFlight = AtomicReference<InFlightHitokotoRequest?>(null)
-    private val lastRequestStartedAt = AtomicReference<HitokotoRequestStart?>(null)
-    private val lastError = AtomicReference<HitokotoResult.Error?>(null)
+    private val requestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val requests = HomeSidePanelRequestPool<HitokotoRequestKey, HitokotoResult>(requestScope)
+    private val lastRequestStartedAt = ConcurrentHashMap<HitokotoRequestKey, Long>()
+    private val lastError = ConcurrentHashMap<HitokotoRequestKey, HitokotoResult.Error>()
 
-    fun loadSettings(): HitokotoSettings = HomeSidePanelPreferences.hitokotoSettings
+    fun validate(settings: HitokotoSettings): BeautifyText? = validateHitokotoSettings(
+        minLength = settings.minLength,
+        maxLength = settings.maxLength,
+        categories = settings.categories,
+    )
 
-    fun saveSettings(settings: HitokotoSettings) {
-        val validationError = validateHitokotoSettings(
-            minLength = settings.minLength,
-            maxLength = settings.maxLength,
-            categories = settings.categories,
-        )
-        if (validationError != null) throw InvalidHitokotoSettingsException(validationError)
-        HomeSidePanelPreferences.hitokotoSettings = settings
-    }
-
-    fun loadCached(): HitokotoSnapshot? = HomeSidePanelPreferences.hitokotoLastSuccess
-
-    suspend fun fetchRandom(): HitokotoResult {
-        val settings = loadSettings()
-        val validationError = validateHitokotoSettings(
-            minLength = settings.minLength,
-            maxLength = settings.maxLength,
-            categories = settings.categories,
-        )
+    suspend fun fetchRandom(
+        settings: HitokotoSettings,
+        cached: HitokotoSnapshot?,
+    ): HitokotoResult {
+        val validationError = validate(settings)
         if (validationError != null) {
-            return HitokotoResult.Error(validationError, HomeSidePanelPreferences.hitokotoLastSuccess)
+            return HitokotoResult.Error(validationError, cached)
         }
         val requestKey = settings.requestKey()
-        inFlight.get()?.let { current ->
-            if (current.requestKey == requestKey) return current.deferred.await()
-            current.deferred.cancel()
-            inFlight.compareAndSet(current, null)
-        }
-
-        val now = System.currentTimeMillis()
-        val previousStart = lastRequestStartedAt.get()
-        if (previousStart?.requestKey == requestKey && now - previousStart.startedAt < MIN_REFRESH_INTERVAL_MS) {
-            return HomeSidePanelPreferences.hitokotoLastSuccess?.let(HitokotoResult::Success)
-                ?: lastError.get()
-                ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
-        }
-
-        return coroutineScope {
-            val created = async(Dispatchers.IO, start = CoroutineStart.LAZY) {
-                performFetch(settings)
+        return requests.await(requestKey) request@{
+            val now = System.currentTimeMillis()
+            val previousStart = lastRequestStartedAt[requestKey]
+            if (previousStart != null && now - previousStart < MIN_REFRESH_INTERVAL_MS) {
+                return@request cached?.let(HitokotoResult::Success)
+                    ?: lastError[requestKey]
+                    ?: HitokotoResult.Error(beautifyText(R.string.home_side_panel_refresh_too_frequent), null)
             }
-            val entry = InFlightHitokotoRequest(requestKey, created)
-            if (inFlight.compareAndSet(null, entry)) {
-                lastRequestStartedAt.set(HitokotoRequestStart(requestKey, now))
-                created.start()
-                try {
-                    val result = created.await()
-                    if (inFlight.get() === entry) {
-                        when (result) {
-                            is HitokotoResult.Success -> {
-                                HomeSidePanelPreferences.hitokotoLastSuccess = result.snapshot
-                                lastError.set(null)
-                            }
-
-                            is HitokotoResult.Error -> lastError.set(result)
-                        }
+            lastRequestStartedAt[requestKey] = now
+            try {
+                performFetch(settings, cached).also { result ->
+                    when (result) {
+                        is HitokotoResult.Success -> lastError.remove(requestKey)
+                        is HitokotoResult.Error -> lastError[requestKey] = result
                     }
-                    result
-                } finally {
-                    inFlight.compareAndSet(entry, null)
                 }
-            } else {
-                created.cancel()
-                fetchRandom()
+            } catch (error: CancellationException) {
+                lastRequestStartedAt.remove(requestKey, now)
+                throw error
             }
         }
     }
 
-    private suspend fun performFetch(settings: HitokotoSettings): HitokotoResult {
-        val cached = HomeSidePanelPreferences.hitokotoLastSuccess
+    fun close() {
+        requests.close()
+        requestScope.cancel()
+    }
+
+    private suspend fun performFetch(
+        settings: HitokotoSettings,
+        cached: HitokotoSnapshot?,
+    ): HitokotoResult {
         val request = Request.Builder().url(buildHitokotoUrl(settings)).get().build()
         return try {
             val payload = client.newCall(request).awaitHitokotoPayload()
@@ -231,16 +206,6 @@ internal class HomeSidePanelHitokoto(
         maxLength = maxLength,
     )
 
-    private data class InFlightHitokotoRequest(
-        val requestKey: HitokotoRequestKey,
-        val deferred: Deferred<HitokotoResult>,
-    )
-
-    private data class HitokotoRequestStart(
-        val requestKey: HitokotoRequestKey,
-        val startedAt: Long,
-    )
-
     private data class HitokotoRequestKey(
         val categories: List<String>,
         val minLength: Int?,
@@ -260,8 +225,6 @@ private data class HitokotoPayload(
 )
 
 private class InvalidHitokotoPayloadException(message: String) : IllegalArgumentException(message)
-
-internal class InvalidHitokotoSettingsException(val text: BeautifyText) : IllegalArgumentException()
 
 private class HitokotoHttpException(val code: Int) : IOException()
 

@@ -110,6 +110,7 @@ import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.items.debug.ResetDexCache
 import dev.ujhhgtg.wekit.features.items.system.SafeMode
 import dev.ujhhgtg.wekit.i18n.LanguageSelection
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.i18n.SupportedLocale
 import dev.ujhhgtg.wekit.i18n.WeKitLocaleController
 import dev.ujhhgtg.wekit.preferences.WePrefs
@@ -153,8 +154,8 @@ import android.graphics.Color as AndroidColor
 @Composable
 fun SettingsPager(onOpenLicense: () -> Unit) {
     val context = LocalComponentActivity.current
-    val localizedContext = LocalContext.current
-    val currentLocalizedContext = rememberUpdatedState(localizedContext)
+    val platformContext = LocalContext.current
+    val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
 
     var showClearConfirm by remember { mutableStateOf(false) }
     var updateInfo by remember { mutableStateOf<UpdateResult.UpdateAvailable?>(null) }
@@ -246,7 +247,11 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_export_config_title),
                         summary = stringResource(R.string.settings_export_config_summary),
                         icon = MaterialSymbols.Outlined.Upload,
-                        onClick = { SettingsConfigActions.export(localizedContext) },
+                        onClick = {
+                            SettingsConfigActions.export(platformContext) {
+                                currentLocalizedContext.value
+                            }
+                        },
                     )
                 }
                 item {
@@ -254,7 +259,11 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         title = stringResource(R.string.settings_import_config_title),
                         summary = stringResource(R.string.settings_import_config_summary),
                         icon = MaterialSymbols.Outlined.Download,
-                        onClick = { SettingsConfigActions.importFromDocument(localizedContext) },
+                        onClick = {
+                            SettingsConfigActions.importFromDocument(platformContext) {
+                                currentLocalizedContext.value
+                            }
+                        },
                     )
                 }
                 item {
@@ -293,7 +302,7 @@ fun SettingsPager(onOpenLicense: () -> Unit) {
                         icon = MaterialSymbols.Outlined.Extension,
                         onClick = {
                             actCtx.startActivity(
-                                Intent(currentLocalizedContext.value, ExtensionsSettingsActivity::class.java)
+                                Intent(context, ExtensionsSettingsActivity::class.java)
                             )
                         },
                     )
@@ -455,7 +464,7 @@ private fun AvatarPlaceholder() {
 
 @Composable
 private fun ThemeSection() {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     val selectedLanguage = WeKitLocaleController.selection
     val resolvedLanguage = WeKitLocaleController.resolvedLocale
     val languageLabels = mapOf(
@@ -547,7 +556,7 @@ private fun ThemeSection() {
                 onCheckedChange = { enabled ->
                     ThemeSettings.updatePredictiveBackEnabled(enabled)
                     CoroutineScope(Dispatchers.Main).launch {
-                        showToastSuspend(context.getString(R.string.restart_wechat_to_apply))
+                        showToastSuspend(localizedContext.getString(R.string.restart_wechat_to_apply))
                     }
                 },
                 icon = MaterialSymbols.Outlined.Swipe,
@@ -652,7 +661,7 @@ private fun ThemeSection() {
                     applyToWechat = it
                     ThemeSettings.updateApplyToWechat(it)
                     CoroutineScope(Dispatchers.Main).launch {
-                        showToastSuspend(context.getString(R.string.restart_wechat_to_apply))
+                        showToastSuspend(localizedContext.getString(R.string.restart_wechat_to_apply))
                     }
                 },
             )
@@ -852,7 +861,7 @@ private fun checkForUpdate(
 
 @Composable
 private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
-    val context = LocalContext.current
+    val localizedContext by rememberUpdatedState(LocalWeKitLocalizedContext.current)
     ConfirmDialog(
         show = show,
         title = stringResource(R.string.clear_config_dialog_title),
@@ -862,9 +871,9 @@ private fun ClearConfigDialog(show: Boolean, onDismiss: () -> Unit) {
         onConfirm = {
             onDismiss()
             CoroutineScope(Dispatchers.IO).launch {
-                showToastSuspend(context.getString(R.string.config_clearing))
+                showToastSuspend(localizedContext.getString(R.string.config_clearing))
                 SettingsConfigActions.clear()
-                showToastSuspend(context.getString(R.string.config_clear_success))
+                showToastSuspend(localizedContext.getString(R.string.config_clear_success))
             }
         },
     )
@@ -876,7 +885,7 @@ private fun UpdateAvailableDialog(
     onDismiss: () -> Unit,
     context: ComponentActivity,
 ) {
-    val currentLocalizedContext = rememberUpdatedState(LocalContext.current)
+    val currentLocalizedContext = rememberUpdatedState(LocalWeKitLocalizedContext.current)
     ConfirmDialog(
         show = info != null,
         title = stringResource(R.string.update_available_title),

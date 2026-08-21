@@ -57,6 +57,7 @@ import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
+import dev.ujhhgtg.wekit.i18n.LocalWeKitLocalizedContext
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.BaseContactSelector
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -316,6 +317,10 @@ object ConversationAggregation : ClickableFeature(),
 
     /** A folder choice exposed to other features (e.g. the "add to folder" conversation menu). */
     data class FolderChoice(val id: String, val name: String, val isAuto: Boolean)
+
+    /** Public member snapshot used by contact pickers that need to filter by folder. */
+    fun folderMembers(folderId: String): List<String> =
+        folderById(folderId)?.let(::getFolderMembers).orEmpty()
 
     /** Public snapshot of the configured folders, for features that let the user pick one. */
     fun aggregationFolders(): List<FolderChoice> =
@@ -1722,12 +1727,15 @@ object ConversationAggregation : ClickableFeature(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 val context = LocalContext.current
+                                val localizedContext = LocalWeKitLocalizedContext.current
                                 Button(
                                     modifier = Modifier.weight(1f),
                                     onClick = {
                                         showComposeDialog(context) {
                                             ContactsSelector(
-                                                title = context.getString(R.string.chat_aggregation_choose_conversations),
+                                                title = localizedContext.getString(
+                                                    R.string.chat_aggregation_choose_conversations,
+                                                ),
                                                 contacts = remember { WeDatabaseApi.getContacts() },
                                                 initialSelectedWxIds = members,
                                                 onDismiss = this.onDismiss,

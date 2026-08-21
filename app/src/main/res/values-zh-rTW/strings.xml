@@ -66,6 +66,10 @@
     <string name="contact_filters_expand">展開篩選</string>
     <string name="contact_filter_with_count">%1$s (%2$d)</string>
     <string name="contact_labels_content_description">標籤</string>
+    <string name="contact_filter_mode_labels">標籤</string>
+    <string name="contact_filter_mode_aggregation">歸攏</string>
+    <string name="contact_filter_mode_grouping">分組</string>
+    <string name="contact_filter_mode_enable_more">可啓用「對話歸攏」或「對話分組」以使用更多篩選方式</string>
     <string name="contact_label_filter_all">全部</string>
     <string name="contact_label_with_count">%1$s (%2$d)</string>
     <string name="contact_sort_direction_toggle">切換排序方向</string>
@@ -151,10 +155,6 @@
     <string name="agent_mcp_servers_summary">添加 Streamable HTTP / SSE 服務器</string>
     <string name="agent_dynamic_tools_title">動態工具發現</string>
     <string name="agent_dynamic_tools_summary">僅提供 discover_tools 元工具，按需暴露其餘工具（工具很多時省 token）</string>
-    <string name="agent_workspaces_title">工作區</string>
-    <string name="agent_workspaces_summary">文件工作區目錄管理</string>
-    <string name="agent_memory_title">記憶</string>
-    <string name="agent_memory_summary">全局開關與記憶索引查看</string>
     <string name="agent_external_services_title">外部服務</string>
     <string name="agent_external_services_summary">Exa Search、Brave Search 等網絡工具的 API Key</string>
     <string name="agent_section_context">上下文</string>
@@ -168,7 +168,6 @@
     <string name="agent_default_model_title">默認模型</string>
     <string name="agent_use_first_model">（使用第一個模型）</string>
     <string name="agent_default_system_prompt_title">默認系統提示詞</string>
-    <string name="agent_default_workspace_title">默認工作區</string>
     <string name="common_none_parenthesized">（無）</string>
     <string name="common_loading">加載中…</string>
     <string name="action_save">保存</string>
@@ -176,11 +175,6 @@
     <string name="accessibility_hide">隱藏</string>
     <string name="external_service_exa_description">AI 語義搜索，需要 Exa API Key（exa.ai）</string>
     <string name="external_service_brave_description">隱私優先的網絡搜索，需要 Brave Search API Key（api.search.brave.com）</string>
-    <string name="agent_memory_enable_title">啓用記憶</string>
-    <string name="agent_memory_enable_summary">允許 AI 通過 /memory/ 讀寫持久記憶（MEMORY.md 索引 + 記憶文件）</string>
-    <string name="agent_memory_index_title">記憶索引（MEMORY.md）</string>
-    <string name="agent_memory_index_parse_failed">⚠ 記憶索引解析失敗，僅影響此處的展示，不影響 AI 使用記憶的能力。</string>
-    <string name="agent_memory_index_empty">記憶索引爲空。AI 會在需要時自行寫入記憶。</string>
     <string name="agent_tool_count_summary">%1$s · %2$d 個工具</string>
     <string name="agent_no_provider_tools">該提供方暫無可用工具。</string>
     <string name="agent_tool_mode_enabled">直接允許</string>
@@ -278,6 +272,8 @@
     <string name="extensions_pack_script_deps_desc">供 Java 腳本引擎使用的未混淆 fastjson2 與 okhttp DEX</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">已讀追蹤內置服務器模式的 Cloudflare Tunnel 橋接庫</string>
+    <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
+    <string name="extensions_pack_archlinux_desc">用於本地 WeAgent Linux 環境的根文件系統和 PRoot 啟動器</string>
     <string name="extensions_pack_downloading">正在下載…</string>
     <string name="extensions_pack_installed_version">已安裝: %1$s</string>
     <string name="extensions_pack_state_not_installed">未安裝</string>
@@ -655,6 +651,8 @@
     <string name="send_sec_msg_trigger_prefix">觸發前綴</string>
     <string name="feature_anti_sec_msg_name">反安全消息</string>
     <string name="feature_anti_sec_msg_description">無視自己或別人發送的消息中的安全屬性，長按消息始終顯示正常、完整菜單</string>
+    <string name="feature_anti_read_receipts_name">反已讀追蹤</string>
+    <string name="feature_anti_read_receipts_description">攔截嵌入視頻號縮略圖鏈接中的追蹤像素請求</string>
     <string name="feature_auto_add_nearby_friends_name">自動添加附近的人</string>
     <string name="feature_auto_add_nearby_friends_description">在附近的人菜單中添加菜單項, 可全自動向附近的人按模板發送消息 (沒寫完)</string>
     <string name="feature_auto_dnd_after_join_group_name">加入羣聊自動免打擾</string>
@@ -1050,12 +1048,6 @@
     <string name="agent_skill_name_label">技能名稱（同時作爲目錄名）</string>
     <string name="agent_skill_description_label">簡介（決定 LLM 何時加載此技能）</string>
     <string name="agent_skill_body_label">技能正文（SKILL.md 指令內容）</string>
-    <string name="agent_workspace_path_summary">/workspace/ → %1$s</string>
-    <string name="agent_add_workspace">添加工作區</string>
-    <string name="agent_workspace_rename_failed">重命名失敗：目標名稱已存在或無效</string>
-    <string name="agent_edit_workspace">編輯工作區</string>
-    <string name="agent_workspace_edit_name_label">工作區名稱（會重命名真實文件夾）</string>
-    <string name="agent_workspace_add_name_label">工作區名稱（同時作爲目錄名）</string>
     <string name="agent_global_triggers">全局觸發器</string>
     <string name="agent_session_triggers">會話觸發器</string>
     <string name="agent_deleted_session">（會話已刪除）</string>
@@ -2912,6 +2904,57 @@
     <string name="home_side_panel_fetch_failed">獲取失敗</string>
     <string name="home_side_panel_refresh_status">刷新狀態</string>
     <string name="home_side_panel_date_pattern">M月d日 E</string>
+    <string name="home_side_panel_date_time_settings">日期與時間設置</string>
+    <string name="home_side_panel_show_lunar_calendar">顯示農曆</string>
+    <string name="home_side_panel_lunar_prefix">農曆</string>
+    <string name="home_side_panel_lunar_leap_prefix">閏</string>
+    <string name="home_side_panel_lunar_separator"></string>
+    <string-array name="home_side_panel_lunar_month_names">
+        <item>正月</item>
+        <item>二月</item>
+        <item>三月</item>
+        <item>四月</item>
+        <item>五月</item>
+        <item>六月</item>
+        <item>七月</item>
+        <item>八月</item>
+        <item>九月</item>
+        <item>十月</item>
+        <item>冬月</item>
+        <item>臘月</item>
+    </string-array>
+    <string-array name="home_side_panel_lunar_day_names">
+        <item>初一</item>
+        <item>初二</item>
+        <item>初三</item>
+        <item>初四</item>
+        <item>初五</item>
+        <item>初六</item>
+        <item>初七</item>
+        <item>初八</item>
+        <item>初九</item>
+        <item>初十</item>
+        <item>十一</item>
+        <item>十二</item>
+        <item>十三</item>
+        <item>十四</item>
+        <item>十五</item>
+        <item>十六</item>
+        <item>十七</item>
+        <item>十八</item>
+        <item>十九</item>
+        <item>二十</item>
+        <item>廿一</item>
+        <item>廿二</item>
+        <item>廿三</item>
+        <item>廿四</item>
+        <item>廿五</item>
+        <item>廿六</item>
+        <item>廿七</item>
+        <item>廿八</item>
+        <item>廿九</item>
+        <item>三十</item>
+    </string-array>
     <string name="home_side_panel_greeting_morning">早上好，今天也要保持好心情。</string>
     <string name="home_side_panel_greeting_afternoon">下午好，願今天一切順利。</string>
     <string name="home_side_panel_greeting_evening">晚上好，願你今晚安心入睡。</string>
@@ -3006,6 +3049,27 @@
     <string name="home_side_panel_hitokoto_connection_failed">無法連接一言服務</string>
     <string name="home_side_panel_open_profile_failed">無法打開個人資料頁</string>
     <string name="home_side_panel_open_status_failed">無法打開狀態編輯頁</string>
+    <string name="home_side_panel_enter_edit_mode">進入編輯模式</string>
+    <string name="home_side_panel_discard_editing">關閉並放棄更改</string>
+    <string name="home_side_panel_save_editing">保存側欄佈局</string>
+    <string name="home_side_panel_save_failed">無法保存側欄佈局，草稿仍保留在編輯器中</string>
+    <string name="home_side_panel_add_card">添加卡片</string>
+    <string name="home_side_panel_add_action">添加動作</string>
+    <string name="home_side_panel_card_date_time">日期與時間</string>
+    <string name="home_side_panel_card_weather">天氣</string>
+    <string name="home_side_panel_card_wallet">錢包</string>
+    <string name="home_side_panel_card_hitokoto">一言</string>
+    <string name="home_side_panel_card_horizontal_actions">橫向磁貼</string>
+    <string name="home_side_panel_card_vertical_actions">縱向列表</string>
+    <string name="home_side_panel_edit_card">編輯卡片</string>
+    <string name="home_side_panel_delete_card">刪除卡片</string>
+    <string name="home_side_panel_delete_action">刪除動作</string>
+    <string name="home_side_panel_delete_empty_action_card">刪除空動作卡片</string>
+    <string name="home_side_panel_drag_card">拖動卡片以排序</string>
+    <string name="home_side_panel_drag_action">在此卡片內拖動動作以排序</string>
+    <string name="home_side_panel_drag_add_card">拖動以插入此卡片</string>
+    <string name="home_side_panel_drag_add_action">拖動以插入此動作</string>
+    <string name="home_side_panel_action_launch_failed">當前微信版本無法打開此動作</string>
     <string name="weather_sunny">晴</string>
     <string name="weather_cloudy">多雲</string>
     <string name="weather_overcast">陰</string>
@@ -3440,8 +3504,6 @@
     <string name="agent_panel_not_selected">未選擇</string>
     <string name="agent_panel_quick_actions">快捷操作</string>
     <string name="agent_panel_model">模型</string>
-    <string name="agent_panel_workspace">工作區</string>
-    <string name="agent_panel_memory">記憶</string>
     <string name="agent_panel_system_prompt">系統提示詞</string>
     <string name="agent_panel_preset_prompt">預設提示詞</string>
     <string name="agent_panel_tap_to_choose">點擊選擇</string>
@@ -3484,7 +3546,6 @@
     <string name="agent_delete_provider_confirm">刪除該提供方及其所有模型？此操作無法撤銷。</string>
     <string name="agent_delete_model_confirm">刪除該模型？此操作無法撤銷。</string>
     <string name="agent_delete_server_confirm">刪除該服務器及其工具配置？此操作無法撤銷。</string>
-    <string name="agent_delete_workspace_confirm">將永久刪除工作區「%1$s」及其全部文件。此操作無法撤銷。</string>
     <string name="agent_delete_prompt_confirm">刪除該提示詞？此操作無法撤銷。</string>
     <string name="agent_delete_skill_confirm">刪除該技能？此操作無法撤銷。</string>
     <string name="agent_delete_trigger_confirm">刪除該觸發器？此操作無法撤銷。</string>
@@ -3493,8 +3554,6 @@
     <string name="agent_regex_invalid">正則表達式無效：%1$s</string>
     <string name="agent_save_failed">儲存失敗:%1$s</string>
     <string name="agent_delete_failed">刪除失敗:%1$s</string>
-    <string name="agent_memory_disabled_summary">記憶已關閉</string>
-    <string name="agent_memory_enabled_summary">AI 可讀寫持久記憶</string>
     <string name="agent_empty_providers_title">暫無提供方</string>
     <string name="agent_empty_providers_message">新增一個模型提供方以配置 API 與模型。</string>
     <string name="agent_empty_models_message">為此提供方新增模型，或從其 API 獲取並導入。</string>
@@ -3506,8 +3565,6 @@
     <string name="agent_empty_prompts_per_turn">暫無每輪提示詞。</string>
     <string name="agent_empty_prompts_conditional">暫無條件提示詞。</string>
     <string name="agent_empty_prompts_preset">暫無預設提示詞。</string>
-    <string name="agent_empty_workspaces_title">暫無工作區</string>
-    <string name="agent_empty_workspaces_message">工作區讓會話可以讀寫文件。</string>
     <string name="agent_empty_skills_title">暫無技能</string>
     <string name="agent_empty_skills_message">技能是 LLM 可按需加載的任務指南。</string>
     <string name="agent_empty_triggers_title">暫無觸發器</string>
