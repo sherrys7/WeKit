@@ -35,9 +35,8 @@ object HpcMusicCard {
         var playUrl: String, var lrctxt: String, var mid: String, var platform: String = ""
     ) { var isFavorite = false }
 
-    private const val AURORA_WY = "http://api3.andeer.top/API/music_wy"
-    private const val AURORA_LRC = "http://api3.andeer.top/API/music_wy_geci"
-    private const val URL_QQ = "https://api.ygking.top/api"
+    private const val FFAPI = "https://ffapi.cn/int/v1/dg_netease"
+    private const val URL_QISHUI = "https://api.cxzja.cn/api/qishuimusi"
 
     private const val MODE_SEQUENCE = 0
     private const val MODE_RANDOM = 1
@@ -612,53 +611,44 @@ object HpcMusicCard {
             var resultJson = "[]"
             try {
                 val encoded = URLEncoder.encode(keyword, "UTF-8")
-                if (platform == "qq") {
-                    val resp = httpGet("$URL_QQ/search?keyword=$encoded&type=song&num=20")
-                    if (resp.isNotEmpty()) {
-                        val root = JSONObject(resp)
-                        if (root.optInt("code") == 0) {
-                            val list = root.optJSONObject("data")?.optJSONArray("list")
-                            if (list != null) {
-                                val out = JSONArray()
-                                for (i in 0 until list.length()) {
-                                    val song = list.getJSONObject(i)
-                                    val singerArr = song.optJSONArray("singer")
-                                    val singer = if (singerArr != null && singerArr.length() > 0)
-                                        singerArr.getJSONObject(0).optString("name") else ""
-                                    val album = song.optJSONObject("album")?.optString("name") ?: ""
+                if (platform == "qs") {
+                    val token = WePrefs.getStringOrDef("home_qs_token", "")
+                    if (token.isNotEmpty()) {
+                        val resp = httpGet("$URL_QISHUI?token=$token&msg=$encoded")
+                        if (resp.isNotEmpty()) {
+                            val root = JSONObject(resp)
+                            if (root.optInt("code") == 200) {
+                                val data = root.optJSONObject("data")
+                                if (data != null) {
+                                    val out = JSONArray()
                                     out.put(JSONObject().apply {
-                                        put("n", i)
-                                        put("name", song.optString("title"))
-                                        put("singer", singer)
-                                        put("album", album)
-                                        put("platform", "qq")
-                                        put("mid", song.optString("mid"))
+                                        put("n", 1)
+                                        put("name", data.optString("song_name"))
+                                        put("singer", data.optString("singers"))
+                                        put("platform", "qs")
+                                        put("mid", data.optString("identifier", "1"))
                                     })
+                                    resultJson = out.toString()
                                 }
-                                resultJson = out.toString()
                             }
                         }
                     }
                 } else {
-                    val resp = httpGet("$AURORA_WY?msg=$encoded")
+                    val resp = httpGet("$FFAPI?msg=$encoded&limit=20&format=json")
                     if (resp.isNotEmpty()) {
                         val root = JSONObject(resp)
                         if (root.optInt("code") == 200) {
-                            val list = root.optJSONObject("data")?.optJSONArray("list")
+                            val list = root.optJSONArray("data")
                             if (list != null) {
                                 val out = JSONArray()
                                 for (i in 0 until list.length()) {
                                     val song = list.getJSONObject(i)
-                                    val display = song.optString("name")
-                                    val dash = display.lastIndexOf("-")
-                                    val name = if (dash > 0) display.substring(0, dash) else display
-                                    val singer = if (dash > 0) display.substring(dash + 1) else ""
                                     out.put(JSONObject().apply {
                                         put("n", i + 1)
-                                        put("name", name)
-                                        put("singer", singer)
+                                        put("name", song.optString("title"))
+                                        put("singer", song.optString("singer"))
                                         put("platform", "wy")
-                                        put("mid", song.optString("index", (i + 1).toString()))
+                                        put("mid", song.optInt("n", i + 1).toString())
                                     })
                                 }
                                 resultJson = out.toString()
@@ -677,74 +667,47 @@ object HpcMusicCard {
             var item: MusicItem? = null
             try {
                 val encoded = URLEncoder.encode(keyword, "UTF-8")
-                if (platform == "qq") {
-                    val urlResp = httpGet("$URL_QQ/song/url?mid=$mid&quality=320")
-                    var musicUrl = ""
-                    if (urlResp.isNotEmpty()) {
-                        val root = JSONObject(urlResp)
-                        if (root.optInt("code") == 0) {
-                            musicUrl = root.optJSONObject("data")?.optString(mid, "") ?: ""
-                        }
-                    }
-                    var lrc = ""
-                    val lrcResp = httpGet("$URL_QQ/lyric?mid=$mid")
-                    if (lrcResp.isNotEmpty()) {
-                        val lrcRoot = JSONObject(lrcResp)
-                        if (lrcRoot.optInt("code") == 0) {
-                            lrc = lrcRoot.optJSONObject("data")?.optString("lyric", "") ?: ""
-                        }
-                    }
-                    var name = ""
-                    var singer = ""
-                    var coverUrl = ""
-                    val detailResp = httpGet("$URL_QQ/song/detail?mid=$mid")
-                    if (detailResp.isNotEmpty()) {
-                        val detailRoot = JSONObject(detailResp)
-                        if (detailRoot.optInt("code") == 0) {
-                            val detail = detailRoot.optJSONObject("data")
-                            if (detail != null) {
-                                name = detail.optString("title")
-                                val singerArr = detail.optJSONArray("singer")
-                                if (singerArr != null && singerArr.length() > 0) {
-                                    singer = singerArr.getJSONObject(0).optString("name")
+                if (platform == "qs") {
+                    val token = WePrefs.getStringOrDef("home_qs_token", "")
+                    if (token.isNotEmpty()) {
+                        val resp = httpGet("$URL_QISHUI?token=$token&msg=$encoded&n=$mid")
+                        if (resp.isNotEmpty()) {
+                            val root = JSONObject(resp)
+                            if (root.optInt("code") == 200) {
+                                val data = root.optJSONObject("data")
+                                if (data != null) {
+                                    val name = data.optString("song_name", "")
+                                    val singer = data.optString("singers", "")
+                                    val coverUrl = data.optString("album_cover", "")
+                                    val musicUrl = data.optString("download_url", "")
+                                    val lrc = data.optString("lyric", "")
+                                    val id = data.optString("identifier", mid)
+                                    item = MusicItem(name, singer, coverUrl, musicUrl, lrc, id, "qs")
                                 }
                             }
                         }
                     }
-                    val coverResp = httpGet("$URL_QQ/song/cover?mid=$mid&size=300")
-                    if (coverResp.isNotEmpty()) {
-                        try {
-                            val coverRoot = JSONObject(coverResp)
-                            if (coverRoot.optInt("code") == 0) {
-                                coverUrl = coverRoot.optJSONObject("data")?.optString("url", "") ?: ""
-                            }
-                        } catch (_: Exception) {}
-                    }
-                    item = MusicItem(name, singer, coverUrl, musicUrl, lrc, mid, "qq")
                 } else {
-                    val resp = httpGet("$AURORA_WY?msg=$encoded&b=$mid")
+                    val resp = httpGet("$FFAPI?msg=$encoded&n=$mid&format=json")
                     if (resp.isNotEmpty()) {
                         val root = JSONObject(resp)
                         if (root.optInt("code") == 200) {
                             val data = root.optJSONObject("data")
                             if (data != null) {
-                                val musicUrl = data.optString("music", "")
                                 val id = data.optLong("id", 0L)
                                 var lrc = ""
                                 if (id > 0L) {
-                                    val lrcResp = httpGet("$AURORA_LRC?id=$id")
+                                    val lrcResp = httpGet("$FFAPI?act=lrcgc&id=$id&format=json")
                                     if (lrcResp.isNotEmpty()) {
-                                        val lrcRoot = JSONObject(lrcResp)
-                                        if (lrcRoot.optInt("code") == 200) {
-                                            lrc = lrcRoot.optJSONObject("data")?.optJSONObject("lrc")?.optString("lyric", "") ?: ""
-                                        }
+                                        lrc = lrcResp
                                     }
                                 }
                                 item = MusicItem(
-                                    data.optString("song", ""),
+                                    data.optString("name", ""),
                                     data.optString("singer", ""),
-                                    data.optString("picture", ""),
-                                    musicUrl, lrc, id.toString(), "wy"
+                                    data.optString("pic", ""),
+                                    data.optString("url", ""),
+                                    lrc, id.toString(), "wy"
                                 )
                             }
                         }

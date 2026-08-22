@@ -40,6 +40,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
@@ -65,6 +66,7 @@ object HomePageCards : ClickableFeature() {
     var calendarBgColor by prefOption("home_calendar_bg_color", "#FFFFFFFF")
     var calendarBgImage by prefOption("home_calendar_bg_image", nul<String>())
     var imageCardBgImage by prefOption("home_image_card_bg_image", nul<String>())
+    var qsToken by prefOption("home_qs_token", "")
 
     var calendarTitleColor by prefOption("home_calendar_title_color", "#FFFFFF")
     var calendarSubtitleColor by prefOption("home_calendar_subtitle_color", "#E0E0E0")
@@ -144,6 +146,7 @@ object HomePageCards : ClickableFeature() {
             var calBgColor by remember { mutableStateOf(calendarBgColor) }
             var calHasImage by remember { mutableStateOf(calendarBgImage != null) }
             var imgHasImage by remember { mutableStateOf(imageCardBgImage != null) }
+            var qsTokenState by remember { mutableStateOf(qsToken) }
             var titleColor by remember { mutableStateOf(calendarTitleColor) }
             var subtitleColor by remember { mutableStateOf(calendarSubtitleColor) }
             var yiColor by remember { mutableStateOf(calendarYiColor) }
@@ -189,6 +192,26 @@ object HomePageCards : ClickableFeature() {
                                         musEnabled = it
                                         musicCardEnabled = it
                                     },
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SegmentedColumn(title = "汽水音乐设置") {
+                            item {
+                                TextFieldDialogWidget(
+                                    title = "API Token",
+                                    value = qsTokenState,
+                                    onValueChange = {
+                                        qsTokenState = it
+                                        qsToken = it
+                                    },
+                                    dialogTitle = "设置汽水音乐 Token",
+                                    confirmLabel = "确认",
+                                    dismissLabel = "取消",
+                                    valueHint = "未设置，请前往 api.cxzja.cn 获取",
+                                    password = true,
                                 )
                             }
                         }

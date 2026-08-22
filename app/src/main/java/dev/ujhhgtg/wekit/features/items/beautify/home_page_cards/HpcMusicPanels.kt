@@ -565,12 +565,12 @@ object HpcMusicPanels {
         rootPanel.addView(platRow)
 
         val currentPlat = arrayOf("wy")
-        val qqBtn = createTabBtn(ctx, "QQ音乐", false)
+        val qsBtn = createTabBtn(ctx, "汽水音乐", false)
         val wyBtn = createTabBtn(ctx, "网易云", true)
-        qqBtn.setOnClickListener {
-            currentPlat[0] = "qq"
-            qqBtn.setTextColor(Color.parseColor("#FFFFFF"))
-            qqBtn.background = createTagBg(Color.parseColor("#333333"), 20)
+        qsBtn.setOnClickListener {
+            currentPlat[0] = "qs"
+            qsBtn.setTextColor(Color.parseColor("#FFFFFF"))
+            qsBtn.background = createTagBg(Color.parseColor("#333333"), 20)
             wyBtn.setTextColor(Color.parseColor("#333333"))
             wyBtn.background = createTagBg(Color.parseColor("#EEEEEE"), 20)
         }
@@ -578,10 +578,10 @@ object HpcMusicPanels {
             currentPlat[0] = "wy"
             wyBtn.setTextColor(Color.parseColor("#FFFFFF"))
             wyBtn.background = createTagBg(Color.parseColor("#333333"), 20)
-            qqBtn.setTextColor(Color.parseColor("#333333"))
-            qqBtn.background = createTagBg(Color.parseColor("#EEEEEE"), 20)
+            qsBtn.setTextColor(Color.parseColor("#333333"))
+            qsBtn.background = createTagBg(Color.parseColor("#EEEEEE"), 20)
         }
-        platRow.addView(qqBtn)
+        platRow.addView(qsBtn)
         platRow.addView(wyBtn)
 
         val searchRow = LinearLayout(ctx).apply {
@@ -1141,7 +1141,7 @@ object HpcMusicPanels {
     }
 
     private fun platLabel(platform: String): String = when (platform) {
-        "qq" -> "QQ音乐"
+        "qs" -> "汽水音乐"
         "wy" -> "网易云音乐"
         else -> "音乐"
     }
