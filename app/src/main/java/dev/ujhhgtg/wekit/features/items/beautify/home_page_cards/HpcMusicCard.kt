@@ -644,25 +644,22 @@ object HpcMusicCard {
                     if (resp.isNotEmpty()) {
                         val root = JSONObject(resp)
                         if (root.optInt("code") == 200) {
-                            val list = root.optJSONObject("data")?.optJSONObject("list")
+                            val list = root.optJSONObject("data")?.optJSONArray("list")
                             if (list != null) {
                                 val out = JSONArray()
-                                val keys = list.keys()
-                                var idx = 1
-                                while (keys.hasNext()) {
-                                    val key = keys.next()
-                                    val display = list.optString(key)
+                                for (i in 0 until list.length()) {
+                                    val song = list.getJSONObject(i)
+                                    val display = song.optString("name")
                                     val dash = display.lastIndexOf("-")
                                     val name = if (dash > 0) display.substring(0, dash) else display
                                     val singer = if (dash > 0) display.substring(dash + 1) else ""
                                     out.put(JSONObject().apply {
-                                        put("n", idx)
+                                        put("n", i + 1)
                                         put("name", name)
                                         put("singer", singer)
                                         put("platform", "wy")
-                                        put("mid", idx.toString())
+                                        put("mid", song.optString("index", (i + 1).toString()))
                                     })
-                                    idx++
                                 }
                                 resultJson = out.toString()
                             }
