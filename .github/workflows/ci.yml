@@ -633,7 +633,7 @@ jobs:
   upload-telegram:
     needs: [build, build_zygisk]
     runs-on: ubuntu-latest
-    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/master' }}
+    if: ${{ always() && needs.build.result == 'success' && github.ref == 'refs/heads/dev-sherry' }}
     services:
       telegram-bot-api:
         image: aiogram/telegram-bot-api:latest
