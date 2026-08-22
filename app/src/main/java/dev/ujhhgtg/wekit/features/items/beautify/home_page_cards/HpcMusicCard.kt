@@ -614,20 +614,23 @@ object HpcMusicCard {
                 if (platform == "qs") {
                     val token = WePrefs.getStringOrDef("home_qs_token", "")
                     if (token.isNotEmpty()) {
-                        val resp = httpGet("$URL_QISHUI?token=$token&msg=$encoded")
+                        val resp = httpGet("$URL_QISHUI?token=$token&msg=$encoded&n=")
                         if (resp.isNotEmpty()) {
                             val root = JSONObject(resp)
                             if (root.optInt("code") == 200) {
-                                val data = root.optJSONObject("data")
-                                if (data != null) {
+                                val list = root.optJSONArray("data")
+                                if (list != null) {
                                     val out = JSONArray()
-                                    out.put(JSONObject().apply {
-                                        put("n", 1)
-                                        put("name", data.optString("song_name"))
-                                        put("singer", data.optString("singers"))
-                                        put("platform", "qs")
-                                        put("mid", data.optString("identifier", "1"))
-                                    })
+                                    for (i in 0 until list.length()) {
+                                        val song = list.getJSONObject(i)
+                                        out.put(JSONObject().apply {
+                                            put("n", i + 1)
+                                            put("name", song.optString("song_name"))
+                                            put("singer", song.optString("singers"))
+                                            put("platform", "qs")
+                                            put("mid", song.optString("num", (i + 1).toString()))
+                                        })
+                                    }
                                     resultJson = out.toString()
                                 }
                             }

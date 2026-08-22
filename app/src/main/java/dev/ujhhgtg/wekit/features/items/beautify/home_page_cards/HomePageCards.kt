@@ -58,9 +58,9 @@ object HomePageCards : ClickableFeature() {
 
     override val defaultEnabled: Boolean = true
 
-    var calendarCardEnabled by prefOption("home_calendar_card", true)
-    var imageCardEnabled by prefOption("home_image_card", true)
-    var musicCardEnabled by prefOption("home_music_card", true)
+    var calendarCardEnabled by prefOption("home_calendar_card", false)
+    var imageCardEnabled by prefOption("home_image_card", false)
+    var musicCardEnabled by prefOption("home_music_card", false)
     var cardsOrder by prefOption("home_cards_order", "calendar,image,music")
 
     var calendarBgColor by prefOption("home_calendar_bg_color", "#FFFFFFFF")
