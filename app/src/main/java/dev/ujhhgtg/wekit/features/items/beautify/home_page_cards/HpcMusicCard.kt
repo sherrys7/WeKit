@@ -729,9 +729,9 @@ object HpcMusicCard {
                             val data = root.optJSONObject("data")
                             if (data != null) {
                                 val musicUrl = data.optString("music", "")
-                                val id = data.optInt("id", 0)
+                                val id = data.optLong("id", 0L)
                                 var lrc = ""
-                                if (id > 0) {
+                                if (id > 0L) {
                                     val lrcResp = httpGet("$AURORA_LRC?id=$id")
                                     if (lrcResp.isNotEmpty()) {
                                         val lrcRoot = JSONObject(lrcResp)
