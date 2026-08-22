@@ -659,7 +659,10 @@ object HpcMusicCard {
                         }
                     }
                 }
-            } catch (e: Exception) { WeLogger.w(TAG, "搜索失败: ${e.message}") }
+            } catch (e: Exception) {
+                WeLogger.w(TAG, "搜索失败: ${e.message}")
+                toast("搜索失败: ${e.message}")
+            }
             val fj = resultJson
             mh.post { cb(fj) }
         }.start()
@@ -716,7 +719,10 @@ object HpcMusicCard {
                         }
                     }
                 }
-            } catch (e: Exception) { WeLogger.w(TAG, "获取详情失败: ${e.message}") }
+            } catch (e: Exception) {
+                WeLogger.w(TAG, "获取详情失败: ${e.message}")
+                toast("获取详情失败: ${e.message}")
+            }
             val fi = item
             mh.post { cb(fi) }
         }.start()
@@ -726,6 +732,8 @@ object HpcMusicCard {
         val c = URL(urlStr).openConnection() as HttpURLConnection
         c.connectTimeout = 10000
         c.readTimeout = 10000
+        c.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+        c.setRequestProperty("Accept", "application/json, */*")
         return if (c.responseCode == 200) c.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() } else ""
     }
 
