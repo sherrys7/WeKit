@@ -100,6 +100,7 @@ object HpcImageCard {
             }
             val card = FrameLayout(ctx).apply {
                 clipToOutline = true
+                clipChildren = false
                 outlineProvider = object : ViewOutlineProvider() {
                     override fun getOutline(v: View, o: Outline) {
                         o.setRoundRect(0, 0, v.width, v.height, r)
@@ -109,12 +110,17 @@ object HpcImageCard {
                     setColor(Color.parseColor("#F0F0F0")); cornerRadius = r
                 }
             }
-            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                clipChildren = false
+                clipToPadding = false
+            }
             val rotations = floatArrayOf(30f, 40f, 0f, 320f, 330f)
             for (i in 0 until 5) {
                 val iv = ImageView(ctx).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                     rotationY = rotations[i]
+                    cameraDistance = 40 * d
                     if (i >= uris.size) setBackgroundColor(Color.parseColor("#E0E0E0"))
                 }
                 if (i < uris.size) iv.load(uris[i]) { crossfade(true) }
