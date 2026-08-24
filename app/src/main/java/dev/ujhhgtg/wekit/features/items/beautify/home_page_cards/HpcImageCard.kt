@@ -110,7 +110,7 @@ object HpcImageCard {
                 }
             }
             val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-            val rotations = floatArrayOf(30f, 40f, 0f, 320f, 330f)
+            val rotations = floatArrayOf(60f, 70f, 0f, 290f, 300f)
             for (i in 0 until 5) {
                 val iv = ImageView(ctx).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
