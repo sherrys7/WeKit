@@ -45,7 +45,7 @@ object HpcImageCard {
         try {
             val d = ctx.resources.displayMetrics.density
             val cw = (365 * d).toInt()
-            val ch = (145 * d).toInt()
+            val ch = (180 * d).toInt()
             val r = 20 * d
 
             val wrapper = LinearLayout(ctx).apply {
@@ -89,7 +89,7 @@ object HpcImageCard {
         try {
             val d = ctx.resources.displayMetrics.density
             val cw = (365 * d).toInt()
-            val ch = (145 * d).toInt()
+            val ch = (180 * d).toInt()
             val r = 20 * d
             val gap = (2 * d).toInt()
             val uris = imageCardImagesList()
@@ -110,9 +110,11 @@ object HpcImageCard {
                 }
             }
             val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            val rotations = floatArrayOf(330f, 320f, 0f, 40f, 30f)
             for (i in 0 until 5) {
                 val iv = ImageView(ctx).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
+                    rotationX = rotations[i]
                     if (i >= uris.size) setBackgroundColor(Color.parseColor("#E0E0E0"))
                 }
                 if (i < uris.size) iv.load(uris[i]) { crossfade(true) }
