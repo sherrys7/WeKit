@@ -379,6 +379,7 @@ object HomePageCards : ClickableFeature() {
                                                 IconButton(onClick = {
                                                     imageCardBgImage = null
                                                     imgHasImage = false
+                                                    HpcImageCard.clearCache()
                                                 }) {
                                                     Icon(
                                                         MaterialSymbols.Outlined.Delete,
