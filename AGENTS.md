@@ -264,3 +264,68 @@ Prefer these over raw Compose controls:
 
 - GitHub Actions: builds on push/PR to `master`/`dev` (skips non-code changes)
 - Artifacts automatically published to a release named "CI" + Telegram channel
+
+## Progress
+### Done
+- 8 个首页三卡文件全部实现并编译通过，CI 已成功
+- 侧栏冲突解决：采用 `dev` 拆分架构
+- 配置 pre-push hook（自动备份分支）
+- `HomePageCards` 改为 `ClickableFeature`，添加设置弹窗（子卡片开关 + 顺序调整 + 字体颜色）
+- CI build job 添加 `dev-sherry` 分支支持
+- 日历卡/图片卡支持自定义背景颜色（`ColorPickerWidget`）和背景图片（`PickVisualMedia` + Coil 加载）
+- 日历卡天气功能已全部删除
+- 字体颜色 5 组独立存储并生效
+- 修复网易云搜索 bug：`data.list` 是 JSONArray `[{index, name}]`，非 JSONObject
+- 修复网易云歌词 bug：歌曲 ID 用 `optLong` 避免 `Int` 溢出
+- 修复 Telegram 推送：CI 配置 `dev-sherry` 分支条件
+- 网易云音乐 API 更换：`api3.andeer.top` AuroraAPI → `ffapi.cn/int/v1/dg_netease`（单接口统一搜索/歌词/播放）
+- QQ 音乐 → 汽水音乐：移除 `api.ygking.top/api` → 改用 `api.cxzja.cn/api/qishuimusi`，平台标识 `"qs"`
+- 汽水音乐 Token 设置：`HomePageCards` 新增 `home_qs_token` 偏好，设置弹窗中增加「汽水音乐设置」分栏，`TextFieldDialogWidget(password=true)` 供填写
+- 汽水音乐搜索修复：`n=` 空值参数返回歌曲列表（`data` 为 JSONArray），`n=1` 返回单首详情含 `download_url` 和 `lyric`
+- 三卡默认关闭：`calendarCardEnabled` / `imageCardEnabled` / `musicCardEnabled` 默认值 `true` → `false`
+- 汽水音乐搜索兼容性修复：`httpGet` 添加 `User-Agent` 和 `Accept` 头部；`search`/`getTrackDetail` 的 `catch` 块增加 `toast` 错误提示
+
+### In Progress
+- (none)
+
+### Blocked
+- 汽水音乐 API 搜索需要用户在设置中手动填入 Token，无 Token 时搜索返回空
+- 用户设备上搜索仍显示"未找到结果"，原因待排查（API 测试正常，代码逻辑正确，怀疑设备网络问题）
+
+## Key Decisions
+- 设置页使用弹窗（`showComposeDialog`）而非独立 Activity
+- 音乐 API 直连第三方，不再经过 Wex 密钥分发层
+- 日历卡天气功能完全移除
+- 网易云音乐改用 `ffapi.cn` 单接口，搜索 `?msg=&limit=20` → `data[{n, title, singer, pic}]`，选歌 `?msg=&n=index` → `data{id, name, singer, pic, url, lrc}`，歌词 `?act=lrcgc&id=ID` 返回 LRC 纯文本，播放 URL 直接传给 `MediaPlayer.setDataSource()`
+- 汽水音乐改用 `api.cxzja.cn`，需要 Token 认证，搜索 `?token=&msg=&n=` → `data[{num, identifier, song_name, singers, album_cover}]`，详情 `?token=&msg=&n=num` → `data{download_url, lyric, ...}`
+- 三卡默认关闭，减少初始干扰
+
+## Next Steps
+1. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位搜索失败原因
+
+## Critical Context
+- 远端 `origin/dev-sherry` 最新 commit：`e5a347b`
+- 网易云 API：`FFAPI = "https://ffapi.cn/int/v1/dg_netease"`
+  - 搜索 `GET ?msg={keyword}&limit=20&format=json` → `data[{n, title, singer, pic}]`
+  - 选歌 `GET ?msg={keyword}&n={index}&format=json` → `data{id, name, singer, pic, url, lrc}`
+  - 歌词 `GET ?act=lrcgc&id={id}&format=json` → LRC 纯文本
+  - 播放 URL 取 `data.url` 直接传给 `MediaPlayer`
+- 汽水音乐 API：`URL_QISHUI = "https://api.cxzja.cn/api/qishuimusi"`
+  - 搜索 `GET ?token={token}&msg={keyword}&n=` → `data[{num, identifier, song_name, singers, album_cover}]`
+  - 详情 `GET ?token={token}&msg={keyword}&n={num}` → `data{download_url, lyric, song_name, singers, album_cover, identifier}`
+  - Token 存于 `home_qs_token` 偏好，设置弹窗中密码模式输入
+  - 无 Token 时搜索返回空 `[]`
+- 三卡默认全部关闭，需在设置中手动开启
+- API 无账号认证，无法播放会员歌曲
+- `httpGet` 已添加 `User-Agent` 和 `Accept` 请求头
+
+## Relevant Files
+- `.../home_page_cards/HomePageCards.kt`: 主入口，`ClickableFeature`，弹窗设置含子卡片开关/顺序/字体颜色/背景/汽水音乐 Token
+- `.../home_page_cards/HpcMusicCard.kt`: 音乐播放器引擎，API 直连 ffapi.cn（网易云）+ cxzja.cn（汽水音乐）
+- `.../home_page_cards/HpcMusicPanels.kt`: 搜索/详情/收藏/历史/定时关闭面板 UI，含平台选择（网易云/汽水音乐）
+- `.../home_page_cards/HpcCalendarCard.kt`: 日历卡，读取 5 组字体颜色偏好，无天气
+- `.../home_page_cards/HpcCardManager.kt`: 按 `home_cards_order` 顺序注入卡片
+- `.../home_page_cards/HpcMediaNotification.kt`: 系统通知栏 + MediaSession 控制
+- `.../home_page_cards/HpcFloatLyric.kt`: 桌面悬浮歌词
+- `.../home_page_cards/HpcImageCard.kt`: 图片卡，支持自定义背景图
+- `.github/workflows/ci.yml`: CI 配置，含 `upload-telegram` job
