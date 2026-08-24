@@ -14,6 +14,7 @@ import coil3.load
 import coil3.request.crossfade
 import dev.ujhhgtg.wekit.preferences.WePrefs
 import dev.ujhhgtg.wekit.utils.WeLogger
+import org.json.JSONArray
 
 object HpcImageCard {
 
@@ -27,7 +28,17 @@ object HpcImageCard {
 
     fun getCard(ctx: Context): View? {
         cachedCard?.let { return it }
-        return buildCard(ctx)
+        return if (HomePageCards.imageCardFormat == "five") buildFiveCard(ctx) else buildCard(ctx)
+    }
+
+    fun imageCardImagesList(): List<String> {
+        val s = WePrefs.getString("home_image_card_images") ?: return emptyList()
+        return try {
+            val arr = JSONArray(s)
+            (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotEmpty() }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     private fun buildCard(ctx: Context): View? {
@@ -70,6 +81,51 @@ object HpcImageCard {
             return wrapper
         } catch (e: Exception) {
             WeLogger.w(TAG, "图片卡创建失败: ${e.message}")
+            return null
+        }
+    }
+
+    private fun buildFiveCard(ctx: Context): View? {
+        try {
+            val d = ctx.resources.displayMetrics.density
+            val cw = (365 * d).toInt()
+            val ch = (145 * d).toInt()
+            val r = 20 * d
+            val gap = (2 * d).toInt()
+            val uris = imageCardImagesList()
+
+            val wrapper = LinearLayout(ctx).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, (8 * d).toInt(), 0, (8 * d).toInt())
+            }
+            val card = FrameLayout(ctx).apply {
+                clipToOutline = true
+                outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(v: View, o: Outline) {
+                        o.setRoundRect(0, 0, v.width, v.height, r)
+                    }
+                }
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#F0F0F0")); cornerRadius = r
+                }
+            }
+            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
+            for (i in 0 until 5) {
+                val iv = ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    if (i >= uris.size) setBackgroundColor(Color.parseColor("#E0E0E0"))
+                }
+                if (i < uris.size) iv.load(uris[i]) { crossfade(true) }
+                val lp = LinearLayout.LayoutParams(0, -1, 1f)
+                if (i > 0) lp.marginStart = gap
+                row.addView(iv, lp)
+            }
+            card.addView(row, FrameLayout.LayoutParams(-1, -1))
+            wrapper.addView(card, LinearLayout.LayoutParams(cw, ch))
+            cachedCard = wrapper
+            return wrapper
+        } catch (e: Exception) {
+            WeLogger.w(TAG, "五图卡片创建失败: ${e.message}")
             return null
         }
     }

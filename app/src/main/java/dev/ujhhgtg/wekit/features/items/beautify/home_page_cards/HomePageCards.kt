@@ -38,6 +38,7 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.m3.BaseWidget
 import dev.ujhhgtg.wekit.ui.content.m3.ColorPickerWidget
+import dev.ujhhgtg.wekit.ui.content.m3.RadioButtonWidget
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.SwitchWidget
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
@@ -45,6 +46,7 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.nul
+import org.json.JSONArray
 
 @Feature(
     id = "首页三卡",
@@ -66,6 +68,8 @@ object HomePageCards : ClickableFeature() {
     var calendarBgColor by prefOption("home_calendar_bg_color", "#FFFFFFFF")
     var calendarBgImage by prefOption("home_calendar_bg_image", nul<String>())
     var imageCardBgImage by prefOption("home_image_card_bg_image", nul<String>())
+    var imageCardFormat by prefOption("home_image_card_format", "single")
+    var imageCardImages by prefOption("home_image_card_images", "")
     var qsToken by prefOption("home_qs_token", "")
 
     var calendarTitleColor by prefOption("home_calendar_title_color", "#FFFFFF")
@@ -137,6 +141,30 @@ object HomePageCards : ClickableFeature() {
         }
     }
 
+    private fun selectImageCardImages(context: ComponentActivity) {
+        TransparentActivity.launch(context) {
+            val launcher = registerForActivityResult(
+                ActivityResultContracts.PickMultipleVisualMedia(5)
+            ) { uris ->
+                finish()
+                if (uris.isEmpty()) return@registerForActivityResult
+                val cr = HostInfo.application.contentResolver
+                uris.forEach { uri ->
+                    runCatching {
+                        cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }.onFailure {
+                        WeLogger.w(TAG, "failed to take persistable uri permission", it)
+                    }
+                }
+                imageCardImages = JSONArray().apply {
+                    uris.forEach { put(it.toString()) }
+                }.toString()
+                HpcImageCard.clearCache()
+            }
+            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             var calEnabled by remember { mutableStateOf(calendarCardEnabled) }
@@ -146,6 +174,8 @@ object HomePageCards : ClickableFeature() {
             var calBgColor by remember { mutableStateOf(calendarBgColor) }
             var calHasImage by remember { mutableStateOf(calendarBgImage != null) }
             var imgHasImage by remember { mutableStateOf(imageCardBgImage != null) }
+            var imgFormat by remember { mutableStateOf(imageCardFormat) }
+            var imgFiveCount by remember { mutableStateOf(HpcImageCard.imageCardImagesList().size) }
             var qsTokenState by remember { mutableStateOf(qsToken) }
             var titleColor by remember { mutableStateOf(calendarTitleColor) }
             var subtitleColor by remember { mutableStateOf(calendarSubtitleColor) }
@@ -312,26 +342,78 @@ object HomePageCards : ClickableFeature() {
 
                         SegmentedColumn(title = "图片卡背景") {
                             item {
-                                BaseWidget(
+                                RadioButtonWidget(
                                     iconPlaceholder = false,
-                                    title = "背景图片",
-                                    description = if (imgHasImage) "已选择图片" else "未设置（使用纯色背景）",
-                                    onClick = { selectImageCardImage(context) },
-                                    trailingContent = {
-                                        if (imgHasImage) {
-                                            IconButton(onClick = {
-                                                imageCardBgImage = null
-                                                imgHasImage = false
-                                            }) {
-                                                Icon(
-                                                    MaterialSymbols.Outlined.Delete,
-                                                    contentDescription = "清除图片",
-                                                    modifier = Modifier.size(20.dp),
-                                                )
-                                            }
-                                        }
+                                    title = "单图格式",
+                                    description = "一张背景图铺满整卡",
+                                    selected = imgFormat == "single",
+                                    onClick = {
+                                        imgFormat = "single"
+                                        imageCardFormat = "single"
+                                        HpcImageCard.clearCache()
                                     },
                                 )
+                            }
+                            item {
+                                RadioButtonWidget(
+                                    iconPlaceholder = false,
+                                    title = "五图模板",
+                                    description = "5 张图片并排展示",
+                                    selected = imgFormat == "five",
+                                    onClick = {
+                                        imgFormat = "five"
+                                        imageCardFormat = "five"
+                                        HpcImageCard.clearCache()
+                                    },
+                                )
+                            }
+                            if (imgFormat == "single") {
+                                item {
+                                    BaseWidget(
+                                        iconPlaceholder = false,
+                                        title = "背景图片",
+                                        description = if (imgHasImage) "已选择图片" else "未设置（使用纯色背景）",
+                                        onClick = { selectImageCardImage(context) },
+                                        trailingContent = {
+                                            if (imgHasImage) {
+                                                IconButton(onClick = {
+                                                    imageCardBgImage = null
+                                                    imgHasImage = false
+                                                }) {
+                                                    Icon(
+                                                        MaterialSymbols.Outlined.Delete,
+                                                        contentDescription = "清除图片",
+                                                        modifier = Modifier.size(20.dp),
+                                                    )
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            } else {
+                                item {
+                                    BaseWidget(
+                                        iconPlaceholder = false,
+                                        title = "选择5张图片",
+                                        description = if (imgFiveCount > 0) "已选择 $imgFiveCount 张图片" else "未设置（使用灰色占位）",
+                                        onClick = { selectImageCardImages(context) },
+                                        trailingContent = {
+                                            if (imgFiveCount > 0) {
+                                                IconButton(onClick = {
+                                                    imageCardImages = ""
+                                                    imgFiveCount = 0
+                                                    HpcImageCard.clearCache()
+                                                }) {
+                                                    Icon(
+                                                        MaterialSymbols.Outlined.Delete,
+                                                        contentDescription = "清除五图",
+                                                        modifier = Modifier.size(20.dp),
+                                                    )
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
                             }
                         }
 
