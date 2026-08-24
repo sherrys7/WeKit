@@ -652,6 +652,12 @@ jobs:
           name: wekit-apk
           path: artifacts
 
+      - name: Rename APK
+        run: |
+          cd artifacts
+          mv app-standard-release.apk "WeKit-${{ github.ref_name }}-${GITHUB_SHA:0:7}.apk"
+          ls -la
+
       - name: Download Zygisk artifact
         if: ${{ needs.build_zygisk.result == 'success' }}
         uses: actions/download-artifact@v8
