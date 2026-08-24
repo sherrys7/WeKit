@@ -11,3 +11,6 @@ panic = "abort"
 
 [profile.release.package.wekit-zygisk]
 strip = "none"
+
+[patch.crates-io]
+mp3lame-sys = { path = "C:/Users/S/AppData/Roaming/Tencent/Marvis/User/548E0762626B4AC4F905CCFE67FAE2AF/workspace/conv_1a02f2edd2c_0a97d37166cb/vendor/mp3lame-sys" }

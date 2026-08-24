@@ -91,7 +91,7 @@ object HpcImageCard {
             val cw = (365 * d).toInt()
             val ch = (180 * d).toInt()
             val r = 20 * d
-            val gap = (2 * d).toInt()
+            val gap = (0.4 * d).toInt()
             val uris = imageCardImagesList()
 
             val wrapper = LinearLayout(ctx).apply {
