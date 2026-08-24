@@ -114,7 +114,7 @@ object HpcImageCard {
             for (i in 0 until 5) {
                 val iv = ImageView(ctx).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    rotationX = rotations[i]
+                    rotationY = rotations[i]
                     if (i >= uris.size) setBackgroundColor(Color.parseColor("#E0E0E0"))
                 }
                 if (i < uris.size) iv.load(uris[i]) { crossfade(true) }
