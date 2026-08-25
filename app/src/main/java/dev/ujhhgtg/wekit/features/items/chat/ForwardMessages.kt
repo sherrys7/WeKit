@@ -9,29 +9,27 @@ import dev.ujhhgtg.wekit.features.api.core.WeServiceApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.content.ContactsSelector
 import dev.ujhhgtg.wekit.ui.utils.ForwardIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
-import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import dev.ujhhgtg.wekit.utils.android.showToastSuspend
+import dev.ujhhgtg.wekit.utils.serialization.XmlUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Feature(
-    id = "转发消息",
-    nameRes = "feature_forward_messages_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_forward_messages_description",
-)
 object ForwardMessages : SwitchFeature(),
     WeChatMessageContextMenuApi.IMenuItemsProvider {
+
+    override val technicalId = "转发消息"
+    override val nameRes = R.string.feature_forward_messages_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_forward_messages_description
 
     private const val TAG = "ForwardMessages"
 
@@ -152,7 +150,7 @@ object ForwardMessages : SwitchFeature(),
     private fun forwardVoice(toUser: String, msgInfo: MessageInfo): Boolean {
         val encPath = msgInfo.imagePath ?: return false
         val voicePath = WeMessageApi.getVoiceFullPath(encPath)
-        val durationMs = AudioUtils.getDurationMs(voicePath).toInt()
+        val durationMs = XmlUtils.extractXmlAttr(msgInfo.content, "voicelength").toInt()
         return WeMessageApi.sendVoice(toUser, voicePath, durationMs)
     }
 

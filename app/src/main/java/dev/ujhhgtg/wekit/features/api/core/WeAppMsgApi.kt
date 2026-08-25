@@ -1,21 +1,23 @@
 package dev.ujhhgtg.wekit.features.api.core
 
+import android.util.Pair
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ApiFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.utils.WeLogger
 import org.luckypray.dexkit.DexKitBridge
 import java.lang.reflect.Modifier
 
-@Feature(
-    id = "AppMsg 发送服务",
-    nameRes = "feature_we_app_msg_api_name",
-    categoryIds = [FeatureCategoryIds.API],
-    descriptionRes = "feature_we_app_msg_api_description",
-)
 object WeAppMsgApi : ApiFeature(), IResolveDex {
+
+    override val technicalId = "AppMsg 发送服务"
+    override val nameRes = R.string.feature_we_app_msg_api_name
+    override val categoryIds = listOf(FeatureCategoryIds.API)
+    override val descriptionRes = R.string.feature_we_app_msg_api_description
+
+    data class NativeSendResult(val statusCode: Int, val localMsgId: Long?)
 
     private val methodParseXml by dexMethod()    // op0.q.u(String)
     private val methodSendAppMsg by dexMethod()  // k0.J(...)
@@ -93,5 +95,18 @@ object WeAppMsgApi : ApiFeature(), IResolveDex {
             WeLogger.e(TAG, "failed to send appmsg", e)
             false
         }
+    }
+
+    fun sendAppMsgObject(target: String, contentObj: Any): NativeSendResult {
+        val result = methodSendAppMsg.method.invoke(
+            null,
+            contentObj,
+            "",
+            "",
+            target,
+            "",
+            null,
+        ) as Pair<*, *>
+        return NativeSendResult(result.first as Int, result.second as? Long)
     }
 }

@@ -47,7 +47,7 @@ android {
 
         ndk {
             // noinspection ChromeOsAbiSupport
-            abiFilters += setOf("arm64-v8a", "armeabi-v7a")
+            abiFilters += "arm64-v8a"
         }
 
         buildConfigField("String", "COMMIT_HASH", "\"${gitHash}\"")
@@ -131,6 +131,9 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources.excludes += listOf(
             "kotlin/**",
             "**.bin",
@@ -291,6 +294,7 @@ dependencies {
     implementation(libs.mmkv)
 
     implementation(project(":libs:common:bsh"))
+    implementation(project(":libs:monet-generator-api"))
 
     compileOnly(libs.legacyxposed.api)
     compileOnly(libs.libxposed.api)

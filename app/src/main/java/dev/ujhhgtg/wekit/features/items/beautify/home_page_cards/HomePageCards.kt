@@ -30,9 +30,9 @@ import com.composables.icons.materialsymbols.outlined.Delete
 import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_down
 import com.composables.icons.materialsymbols.outlined.Keyboard_double_arrow_up
 import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.activity.TransparentActivity
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -48,13 +48,12 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.nul
 import org.json.JSONArray
 
-@Feature(
-    id = "首页三卡",
-    nameRes = "feature_beautify_home_page_cards_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_beautify_home_page_cards_description",
-)
 object HomePageCards : ClickableFeature() {
+
+    override val technicalId = "首页三卡"
+    override val nameRes = R.string.feature_beautify_home_page_cards_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_beautify_home_page_cards_description
 
     private const val TAG = "HomePageCards"
 

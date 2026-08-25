@@ -42,9 +42,10 @@ import com.tencent.mm.ui.conversation.BaseConversationUI
 import com.tencent.mm.ui.conversation.ConvBoxServiceConversationUI
 import com.tencent.mm.ui.conversation.MainUI
 import dev.ujhhgtg.reflekt.reflekt
-import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.reflekt.utils.Modifiers
+import dev.ujhhgtg.reflekt.utils.fastJavaMethod
 import dev.ujhhgtg.reflekt.utils.isSubclassOf
+import dev.ujhhgtg.wekit.R
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.core.WeConversationApi
@@ -53,7 +54,6 @@ import dev.ujhhgtg.wekit.features.api.core.WeDatabaseListenerApi
 import dev.ujhhgtg.wekit.features.api.core.models.IWeContact
 import dev.ujhhgtg.wekit.features.api.ui.WeStartActivityApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.items.chat.ConversationAggregation.syncFoldersToDatabase
 import dev.ujhhgtg.wekit.features.items.contacts.CustomLocalFriendAvatars
@@ -86,18 +86,17 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import java.lang.reflect.Modifier as JavaModifier
 
-@Feature(
-    id = "对话归拢",
-    nameRes = "feature_conversation_aggregation_name",
-    categoryIds = [FeatureCategoryIds.CHAT],
-    descriptionRes = "feature_conversation_aggregation_description",
-)
 object ConversationAggregation : ClickableFeature(),
     WeDatabaseListenerApi.IQueryListener,
     WeDatabaseListenerApi.IInsertListener,
     WeDatabaseListenerApi.IUpdateListener,
     WeStartActivityApi.IStartActivityListener,
     IResolveDex {
+
+    override val technicalId = "对话归拢"
+    override val nameRes = R.string.feature_conversation_aggregation_name
+    override val categoryIds = listOf(FeatureCategoryIds.CHAT)
+    override val descriptionRes = R.string.feature_conversation_aggregation_description
 
     private const val TAG = "AggregateChats"
     const val FOLDER_PREFIX = "wekit_folder_"
@@ -530,19 +529,19 @@ object ConversationAggregation : ClickableFeature(),
     }
 
     private fun hookMainUiRefresh() {
-        MainUI::class.reflekt().firstMethod("onResume").hookAfter {
+        MainUI::onResume.fastJavaMethod!!.hookAfter {
             syncFoldersToDatabase()
         }
     }
 
     private fun hookOpenFolder() {
-        LauncherUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        LauncherUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }
         }
 
-        BaseConversationUI::class.reflekt().firstMethod("startChatting").hookBefore {
+        BaseConversationUI::startChatting.fastJavaMethod!!.hookBefore {
             interceptFolderChatOpen(args.firstOrNull() as? String, thisObject) {
                 result = null
             }

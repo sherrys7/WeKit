@@ -159,6 +159,7 @@
     <string name="agent_linux_environment_details_section">Configuration</string>
     <string name="agent_linux_environment_actions_section">Actions</string>
     <string name="agent_linux_environment_name">Name</string>
+    <string name="agent_linux_environment_type">Type</string>
     <string name="agent_linux_environment_type_immutable">Type cannot be changed after creation</string>
     <string name="agent_linux_environment_selected">Selected for new sessions</string>
     <string name="agent_linux_environment_working_directory">Working directory</string>
@@ -246,6 +247,7 @@
     <string name="agent_provider_type_anthropic_messages" translatable="false">Anthropic Messages</string>
     <string name="agent_provider_type_gemini_generate_content" translatable="false">Gemini generateContent (legacy)</string>
     <string name="agent_provider_type_gemini_interactions" translatable="false">Gemini Interactions</string>
+    <string name="agent_provider_type_local_llama" translatable="false">Local LLM Inference</string>
     <string name="agent_builtin_provider_wechat">WeChat operations</string>
     <string name="agent_builtin_provider_wechat_sql">Database SQL</string>
     <string name="agent_builtin_provider_files">Files and skills</string>
@@ -334,10 +336,16 @@
     <string name="extensions_screen_title">Extension packs</string>
     <string name="extensions_pack_script_deps_name">Java script dependencies</string>
     <string name="extensions_pack_script_deps_desc">Unobfuscated fastjson2 and okhttp DEX for the Java script engine</string>
+    <string name="extensions_pack_monet_generator_name">Monet module generator</string>
+    <string name="extensions_pack_monet_generator_desc">RRO builder, signer, and resources for the zero-overhead WeChat Monet module</string>
     <string name="extensions_pack_cloudflared_name">Cloudflared</string>
     <string name="extensions_pack_cloudflared_desc">Cloudflare Tunnel bridge for the built-in read-receipts backend</string>
     <string name="extensions_pack_archlinux_name">Arch Linux ARM64</string>
     <string name="extensions_pack_archlinux_desc">Root filesystem and PRoot launcher for local WeAgent Linux environments</string>
+    <string name="extensions_pack_llama_native_name">Local inference engine</string>
+    <string name="extensions_pack_llama_native_desc">llama.cpp inference runtime (CPU/Vulkan/OpenCL) for the built-in local LLM provider</string>
+    <string name="extensions_pack_qwen_model_name">Qwen3.8-4B Distill (Q4_K_M)</string>
+    <string name="extensions_pack_qwen_model_desc">Local LLM model weights (~2.8 GB), downloaded from Hugging Face. Requires the local inference engine.</string>
     <string name="extensions_pack_downloading">Downloading…</string>
     <string name="extensions_pack_installed_version">Installed: %1$s</string>
     <string name="extensions_pack_state_not_installed">Not installed</string>
@@ -559,6 +567,18 @@
     <string name="feature_hide_other_devices_banner_description">Hide other devices logged in banner at top of homepage</string>
     <string name="feature_monet_engine_name">Monet engine</string>
     <string name="feature_monet_engine_description">Color WeChat native components according to the custom color matching set by the module</string>
+    <string name="feature_monet_module_generator_name">Monet engine (module)</string>
+    <string name="feature_monet_module_generator_description">Generate a root-installable WeChat Monet RRO with no runtime overhead. Requires Android 12+ and the Monet generator extension.</string>
+    <string name="monet_generator_unsupported">Android 12 or newer is required.</string>
+    <string name="monet_generator_preparing">Preparing extension payload…</string>
+    <string name="monet_generator_building">Building the overlay for this WeChat version…</string>
+    <string name="monet_generator_signing">Signing the overlay…</string>
+    <string name="monet_generator_packaging">Packaging the root module…</string>
+    <string name="monet_generator_pack_invalid">The Monet generator extension is damaged or incompatible. Delete it and download it again.</string>
+    <string name="monet_generator_failed">Generation failed during %1$s: %2$s</string>
+    <string name="monet_generator_output">Module generated at:\n%1$s</string>
+    <string name="monet_generator_counts">Covered %1$d resources (kept %2$d, added %3$d, pruned %4$d).</string>
+    <string name="monet_generator_install_hint">Install this ZIP with Magisk, KernelSU, APatch, or a derivative root manager, then reboot. KernelSU/APatch users must allow modules to affect WeChat in its app profile.</string>
     <string name="feature_replace_navigation_bar_name">Replace home navigation bar</string>
     <string name="feature_replace_navigation_bar_description">Replace the bottom navigation bar of the homepage with Material Design or Backdrop style</string>
     <string name="feature_themes_name">Themes</string>
@@ -647,8 +667,6 @@
     <string name="feature_half_screen_album_picker_description">Display the album selector, image preview and search page of the chat "+" panel as half-screen cards, with the chat content visible above (the image editor remains full-screen)</string>
     <string name="feature_hide_messages_avatars_name">Hide message avatar</string>
     <string name="feature_hide_messages_avatars_description">Hide user avatar for messages (Telegram style)</string>
-    <string name="feature_immersive_chat_ui_name">Immersive chat interface</string>
-    <string name="feature_immersive_chat_ui_description">The chat interface enables edge-to-edge: the content extends behind the status bar, and messages can be scrolled below the status bar;</string>
     <string name="feature_markdown_rendering_name">Markdown rendering</string>
     <string name="feature_markdown_rendering_description">Rendering Markdown messages</string>
     <string name="feature_merge_chat_message_context_menu_items_name">Merge message context-menu items</string>
@@ -940,6 +958,8 @@
     <string name="feature_hide_module_from_app_list_description">Prevent WeChat from querying module installation status without affecting module functionality (experimental)</string>
     <string name="feature_link_external_app_jump_name">Open links with system apps</string>
     <string name="feature_link_external_app_jump_description">A dialog box is displayed when opening a link or card link, which can be opened directly using the system open method.\nIf you want to jump to a third-party application, you must first enable "Open supported web links in this application" in the corresponding application settings.</string>
+    <string name="feature_auto_like_sports_rank_name">Automatically like sports rankings</string>
+    <string name="feature_auto_like_sports_rank_description">Automatically like eligible friends after receiving a new WeChat Sports ranking</string>
     <string name="feature_modify_sports_step_count_name">Modify WeChat Sports step count</string>
     <string name="feature_modify_sports_step_count_description">Modify the number of exercise steps obtained from WeChat or manually uploaded</string>
     <string name="feature_nerf_background_process_checker_name">Disable WeChat process status detector</string>
@@ -1081,6 +1101,9 @@
     <string name="agent_model_already_added">%1$s (already added)</string>
     <string name="agent_import_selected_models">Import (%1$d)</string>
     <string name="agent_edit_model">Edit model</string>
+    <string name="agent_discard_creation_title">Discard creation?</string>
+    <string name="agent_discard_creation_message">The form has not been saved yet. If you discard it, what you entered will be lost.</string>
+    <string name="agent_discard_creation_confirm">Discard</string>
     <string name="agent_model_id_label">Model ID (sent to the API)</string>
     <string name="agent_model_display_name_label">Display name (optional)</string>
     <string name="agent_reasoning_effort">Reasoning effort</string>
@@ -1194,7 +1217,8 @@
     <string name="nav_page_animation_summary">Animate between pages when tapping a tab instead of jumping directly</string>
     <string name="nav_use_floating_bar">Use floating bottom bar</string>
     <string name="nav_use_liquid_glass">Enable liquid glass effect</string>
-    <string name="nav_requires_floating_bar">Requires “Use floating bottom bar”</string>
+    <string name="nav_dynamic_gravity_highlight">Dynamic gravity highlight</string>
+    <string name="nav_dynamic_gravity_highlight_summary">Rotate glass highlights with device movement; uses the rotation sensor</string>
     <string name="nav_blur_radius_off">Blur radius: Off (fully transparent)</string>
     <string name="nav_blur_radius">Blur radius</string>
     <string name="nav_hide_labels">Hide tab labels</string>
@@ -1202,7 +1226,7 @@
     <string name="nav_show_discover_badge">Show badge on the Discover tab</string>
     <string name="nav_discover_badge_summary">Includes new Moments notifications</string>
     <string name="nav_display_and_order">Visibility and order</string>
-    <string name="nav_reorder_hint">Long press a drag handle to reorder. Keep at least one page.</string>
+    <string name="nav_reorder_hint">Long press a drag handle to reorder. Disable all pages to hide the bottom bar.</string>
     <string name="nav_drag_tab_description">Drag %1$s</string>
     <string name="chat_toolbar_mode_icon_and_text">Icon and text</string>
     <string name="chat_toolbar_mode_icon_only">Icons only</string>
@@ -1819,6 +1843,10 @@
     <string name="chat_auto_cache_select_contacts_hint">Tap to select contacts</string>
     <string name="chat_auto_cache_configure_whitelist">Configure whitelist</string>
     <string name="chat_auto_cache_configure_blacklist">Configure blacklist</string>
+    <string name="sports_rank_min_score">Minimum step count</string>
+    <string name="sports_rank_whitelist_description">Like only friends on the whitelist</string>
+    <string name="sports_rank_blacklist_description">Skip friends on the blacklist</string>
+    <string name="sports_rank_contacts_saved">Friends saved: %1$d</string>
     <string name="chat_member_inviter_title">View group inviter</string>
     <string name="chat_contact_tap_to_view">Tap to view</string>
     <string name="chat_member_inviter_querying">Querying…</string>
@@ -2676,8 +2704,18 @@
     <plurals name="contacts_detect_delete_done"><item quantity="one">Deletion complete: %1$d succeeded, %2$d failed</item><item quantity="other">Deletion complete: %1$d succeeded, %2$d failed</item></plurals>
     <string name="contacts_detect_warning_title">Warning</string>
     <string name="contacts_detect_warning_message">This feature may cause account abnormalities. Continue?</string>
+    <string name="contacts_detect_mode">Detection method</string>
+    <string name="contacts_detect_mode_before_transfer">Transfer preflight request</string>
+    <string name="contacts_detect_mode_verify_user">Verify-user relationship request</string>
+    <string name="contacts_detect_request_delay">Request interval (seconds)</string>
+    <string name="contacts_detect_status_transfer_abnormal">Status: Transfer response abnormal</string>
+    <string name="contacts_detect_status_deleted">Status: Deleted by this contact</string>
+    <string name="contacts_detect_status_blacklisted">Status: You are blacklisted</string>
+    <string name="contacts_detect_status_account_restricted">Status: Account restricted or abnormal</string>
+    <string name="contacts_detect_rate_limited">The server reported too many operations. Scanning has stopped; try again later.</string>
     <plurals name="contacts_detect_scanning"><item quantity="one">Scanning; please wait…\nCompleted: %1$d/%2$d friend</item><item quantity="other">Scanning; please wait…\nCompleted: %1$d/%2$d friends</item></plurals>
     <plurals name="contacts_detect_scan_done"><item quantity="one">Scan complete; %1$d friend has an abnormal status</item><item quantity="other">Scan complete; %1$d friends have an abnormal status</item></plurals>
+    <plurals name="contacts_detect_unresolved"><item quantity="one">%1$d friend could not be determined and was not included in the results.</item><item quantity="other">%1$d friends could not be determined and were not included in the results.</item></plurals>
     <string name="contacts_detect_status_abnormal">Status: Abnormal</string>
     <string name="contacts_detect_nickname">Nickname: %1$s</string>
     <string name="contacts_detect_remark">Remark: %1$s</string>
@@ -2774,6 +2812,7 @@
     <string name="beautify_global_background_set">Background image is set</string>
     <string name="beautify_global_background_not_set">No background image is set</string>
     <string name="beautify_global_background_selected">Background image set. Restart WeChat to apply.</string>
+    <string name="beautify_global_background_import_failed">Failed to import the background image</string>
     <string name="beautify_global_background_cleared">Background image cleared. Restart WeChat to apply.</string>
     <string name="beautify_global_background_status_bar">Transparent status bar background</string>
     <string name="beautify_global_background_status_bar_summary">Make the status bar background transparent</string>
@@ -3542,6 +3581,15 @@
     <string name="notifications_self">Me</string>
     <string name="notifications_unknown_content">Unknown content (please report this to the module developer)</string>
     <string name="notifications_unknown_conversation">Unknown conversation (please report this to the module developer)</string>
+    <string name="notifications_settings_title">Enhanced notification settings</string>
+    <string name="notifications_image_behavior">Image messages</string>
+    <string name="notifications_image_disabled">Do not show images</string>
+    <string name="notifications_image_wait_thumbnail">Wait for thumbnail</string>
+    <string name="notifications_image_wait_large">Wait for large image</string>
+    <string name="notifications_sticker_behavior">Sticker messages</string>
+    <string name="notifications_sticker_loaded_only">Loaded stickers only</string>
+    <string name="notifications_sticker_wait_load">Wait for sticker loading</string>
+    <string name="notifications_clear_history_after_quick_reply">Clear message history after quick reply</string>
 
     <string name="system_auto_approve_auto_login">Auto-approve login</string>
     <string name="system_auto_approve_auto_login_summary">Automatically approve login requests from other devices</string>
@@ -3718,6 +3766,37 @@
     <string name="agent_empty_skills_message">Skills are task playbooks the LLM loads on demand.</string>
     <string name="agent_empty_triggers_title">No triggers yet</string>
     <string name="agent_empty_triggers_message">Triggers automatically invoke the AI on a schedule, when a new message arrives, or when a database operation is detected.</string>
+    <string name="local_llm_provider_name">Local LLM Inference</string>
+    <string name="local_llm_builtin_badge">Built-in</string>
+    <string name="local_llm_no_packs">No model extension pack installed</string>
+    <string name="local_llm_models_count">%1$d model(s) available</string>
+    <string name="local_llm_section_server">Server</string>
+    <string name="local_llm_section_packs">Extension packs</string>
+    <string name="local_llm_section_models">Models</string>
+    <string name="local_llm_server_state_stopped">Stopped</string>
+    <string name="local_llm_server_state_starting">Starting…</string>
+    <string name="local_llm_server_state_running">Running · 127.0.0.1:%1$d</string>
+    <string name="local_llm_server_state_failed">Failed: %1$s</string>
+    <string name="local_llm_server_start">Start</string>
+    <string name="local_llm_server_stop">Stop</string>
+    <string name="local_llm_server_idle_stopped">Stopped (idle timeout)</string>
+    <string name="local_llm_health_line">%1$s → %2$s · %3$s · GPU %4$d/%5$d layers · Uptime %6$s · RSS %7$.1f MB · %8$.1f tok/s</string>
+    <string name="local_llm_backend_fallback">Fallback: %1$s</string>
+    <string name="local_llm_server_operation_failed">Server operation failed: %1$s</string>
+    <string name="local_llm_backend_label">Compute backend</string>
+    <string name="local_llm_backend_auto">Auto</string>
+    <string name="local_llm_backend_cpu" translatable="false">CPU</string>
+    <string name="local_llm_backend_vulkan" translatable="false">Vulkan</string>
+    <string name="local_llm_backend_opencl" translatable="false">OpenCL</string>
+    <string name="local_llm_backend_restart_note">Applies on next server start</string>
+    <string name="local_llm_backend_unavailable">Unavailable</string>
+    <string name="local_llm_backend_load_failed">Failed to load compute backend: %1$s</string>
+    <string name="local_llm_manage_packs">Manage extension packs</string>
+    <string name="local_llm_device_unsupported">Current process is unsupported (64-bit arm64-v8a required)</string>
+    <string name="local_llm_no_models_hint">Install a model extension pack to add local models</string>
+    <string name="local_llm_ctx_warning">Larger context windows use much more RAM; too high may cause OOM or startup failure. Applies on next server start.</string>
+    <string name="local_llm_ctx_bounds">Allowed %1$d–%2$d tokens; model default %3$d.</string>
+    <string name="local_llm_model_desc">%1$s · ctx %2$d · thinking</string>
     <string name="settings_predictive_back_animation_title">Predictive back animation</string>
     <string name="settings_predictive_back_animation_summary">Enable system predictive back for module pages</string>
     <string name="settings_predictive_back_animation_nuke_summary">Enable system predictive back for module pages; Nuke keeps its own page transition</string>

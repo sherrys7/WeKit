@@ -9,6 +9,7 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -32,6 +33,8 @@ local.properties
 /app/src/main/jniLibs/*/libwekit_cloudflared.so
 /app/src/main/jniLibs/*/libinvoke_tool.so
 /app/src/main/jniLibs/*/libchroot_cleanup.so
+/app/src/main/jniLibs/*/libproot.so
+/app/src/main/jniLibs/*/libproot_loader.so
 /build-logic/convention/build/
 
 /decrypted_wechat.db

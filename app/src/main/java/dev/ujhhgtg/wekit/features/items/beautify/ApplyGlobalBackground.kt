@@ -3,8 +3,8 @@ package dev.ujhhgtg.wekit.features.items.beautify
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -42,7 +42,6 @@ import dev.ujhhgtg.wekit.constants.PackageNames
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -56,18 +55,21 @@ import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.fs.KnownPaths
+import dev.ujhhgtg.wekit.utils.fs.asAndroidUri
 import dev.ujhhgtg.wekit.utils.nul
 import java.util.WeakHashMap
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.div
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-@Feature(
-    id = "应用全局背景",
-    nameRes = "feature_apply_global_background_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_apply_global_background_description",
-)
 object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "应用全局背景"
+    override val nameRes = R.string.feature_apply_global_background_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_apply_global_background_description
 
     private const val TAG = "ApplyGlobalBackground"
 
@@ -86,6 +88,12 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private var backgroundUri by prefOption("global_bg_uri", nul<String>())
     private var transparentStatusBar by prefOption("global_bg_transparent_status_bar", false)
     private var opacity by prefOption("global_bg_opacity", 0.10f)
+
+    private const val BACKGROUND_IMAGE_FILE = "global_background.png"
+
+    // The picked image is copied here instead of keeping a SAF content:// uri whose
+    // persistable permission grant some custom ROMs drop after reboot.
+    private val backgroundImageFile by lazy { KnownPaths.moduleAssets / BACKGROUND_IMAGE_FILE }
 
     private const val OVERLAY_TAG = "wekit_global_bg_overlay"
     private const val APPLIED_URI_TAG_KEY = 0x55020001
@@ -124,6 +132,8 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     )
 
     override fun onEnable() {
+        migrateLegacyBackgroundUri()
+
         Activity::class.reflekt().apply {
             firstMethod {
                 name = "onCreate"
@@ -209,6 +219,30 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
     private const val MIN_OPACITY_PERCENT = 1
     private const val MAX_OPACITY_PERCENT = 80
 
+    /**
+     * Old versions stored the SAF content:// uri of the picked image. Copy that image into
+     * moduleAssets once and rewrite the pref to a file uri. On failure the legacy value is
+     * kept so a transient failure (e.g. storage not ready yet) retries on the next startup.
+     */
+    private fun migrateLegacyBackgroundUri() {
+        val legacy = backgroundUri ?: return
+        if (!legacy.startsWith("content://")) return
+
+        val migrated = runCatching {
+            HostInfo.application.contentResolver.openInputStream(Uri.parse(legacy))?.use { input ->
+                backgroundImageFile.toFile().outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } != null
+        }.onFailure {
+            WeLogger.w(TAG, "failed to migrate legacy background image", it)
+        }.isSuccess
+
+        if (migrated) {
+            backgroundUri = backgroundImageFile.asAndroidUri.toString()
+        }
+    }
+
     override fun onClick(context: ComponentActivity) {
         showComposeDialog(context) {
             val originalOpacity = remember { opacity }
@@ -256,6 +290,10 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                                         onClick = {
                                             backgroundUri = null
                                             hasImage = false
+                                            runCatching { backgroundImageFile.deleteIfExists() }
+                                                .onFailure {
+                                                    WeLogger.w(TAG, "failed to delete background image file", it)
+                                                }
                                             showToast(localizedContext.getString(R.string.beautify_global_background_cleared))
                                         },
                                     ) {
@@ -448,18 +486,22 @@ object ApplyGlobalBackground : ClickableFeature(), IResolveDex {
                 finish()
                 if (uri == null) return@registerForActivityResult
 
-                val contentResolver = HostInfo.application.contentResolver
-                runCatching {
-                    contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
+                val ok = runCatching {
+                    HostInfo.application.contentResolver.openInputStream(uri)?.use { input ->
+                        backgroundImageFile.toFile().outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    } != null
                 }.onFailure {
-                    WeLogger.w(TAG, "failed to take persistable uri permission", it)
-                }
+                    WeLogger.e(TAG, "failed to import background image", it)
+                }.isSuccess
 
-                backgroundUri = uri.toString()
-                showToast(context.localizedBeautifyString(R.string.beautify_global_background_selected))
+                if (ok) {
+                    backgroundUri = backgroundImageFile.asAndroidUri.toString()
+                    showToast(context.localizedBeautifyString(R.string.beautify_global_background_selected))
+                } else {
+                    showToast(context.localizedBeautifyString(R.string.beautify_global_background_import_failed))
+                }
             }
 
             launcher.launch(

@@ -81,7 +81,6 @@ import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexMethod
 import dev.ujhhgtg.wekit.features.api.ui.WeMainActivityBeautifyApi
 import dev.ujhhgtg.wekit.features.core.ClickableFeature
-import dev.ujhhgtg.wekit.features.core.Feature
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
@@ -106,13 +105,12 @@ import dev.ujhhgtg.wekit.utils.reflection.bool
 import dev.ujhhgtg.wekit.utils.reflection.int
 import kotlin.math.roundToInt
 
-@Feature(
-    id = "美化首页底部导航栏",
-    nameRes = "feature_replace_navigation_bar_name",
-    categoryIds = [FeatureCategoryIds.BEAUTIFY],
-    descriptionRes = "feature_replace_navigation_bar_description",
-)
 object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
+
+    override val technicalId = "美化首页底部导航栏"
+    override val nameRes = R.string.feature_replace_navigation_bar_name
+    override val categoryIds = listOf(FeatureCategoryIds.BEAUTIFY)
+    override val descriptionRes = R.string.feature_replace_navigation_bar_description
 
     private data class NavItem(
         val wechatIndex: Int,
@@ -135,6 +133,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
     private var showFinderBadge by prefOption("nav_bar_show_finder_badge", true)
     private var hideLabels by prefOption("nav_bar_hide_labels", false)
     private var blurRadius by prefOption("nav_bar_blur_radius", 8)
+    private var dynamicGravityHighlight by prefOption("nav_bar_dynamic_gravity_highlight", false)
     private var barScalePercent by prefOption("nav_bar_scale", 100)
     private var tabOrder by prefOption("nav_bar_tab_order", TAB_ITEMS.joinToString(",") { it.wechatIndex.toString() })
     private var enabledTabs by prefOption("nav_bar_enabled_tabs", TAB_ITEMS.map { it.wechatIndex.toString() }.toSet())
@@ -162,15 +161,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         return orderedIndices.map { index -> TAB_ITEMS.first { it.wechatIndex == index } }
     }
 
-    private fun normalizedEnabledTabIndices(
-        orderedItems: List<NavItem>,
-        rawEnabled: Set<String> = enabledTabs,
-    ): Set<Int> {
+    private fun normalizedEnabledTabIndices(rawEnabled: Set<String> = enabledTabs): Set<Int> {
         val validIndices = TAB_ITEMS.mapTo(mutableSetOf(), NavItem::wechatIndex)
-        val enabled = rawEnabled.mapNotNull(String::toIntOrNull)
+        return rawEnabled.mapNotNull(String::toIntOrNull)
             .filterTo(linkedSetOf()) { it in validIndices }
-        if (enabled.isEmpty()) enabled += orderedItems.first().wechatIndex
-        return enabled
     }
 
     override fun onEnable() {
@@ -178,8 +172,33 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         // only on the next WeChat launch because FragmentStatePagerAdapter cannot safely change
         // the meaning of already-instantiated positions.
         val orderedTabItems = normalizedTabOrder()
-        val enabledTabIndices = normalizedEnabledTabIndices(orderedTabItems)
+        val enabledTabIndices = normalizedEnabledTabIndices()
         val visibleTabItems = orderedTabItems.filter { it.wechatIndex in enabledTabIndices }
+
+        if (visibleTabItems.isEmpty()) {
+            WeMainActivityBeautifyApi.methodDoOnCreate.hookAfter {
+                val viewPager = thisObject!!.reflekt()
+                    .firstField {
+                        name = "mViewPager"
+                    }
+                    .get()!! as WxViewPager
+                val viewParent = viewPager.parent as ViewGroup
+                val bottomTabViewGroup = viewParent.getChildAt(1) as ViewGroup
+
+                bottomTabViewGroup.removeAllViews()
+                bottomTabViewGroup.visibility = View.GONE
+            }
+
+            // Without a replacement bar, WeChat's bottom blur must also be disabled or it
+            // leaves a frosted strip where the original navigation bar used to be.
+            "com.tencent.mm.ui.FrostedContentView".toClass().firstMethod {
+                parameters { it[0] == bool && it[1] == int }
+            }.hookBefore {
+                args[0] = false
+            }
+            return
+        }
+
         val visibleWechatIndices = visibleTabItems.map(NavItem::wechatIndex)
         val remapProgrammaticTab = ThreadLocal.withInitial { false }
         val animateNextPageChange = ThreadLocal.withInitial { false }
@@ -385,6 +404,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             val useBackdrop = useBackdrop
             val showFinderBadge = showFinderBadge
             val hideLabels = hideLabels
+            val dynamicGravityHighlight = dynamicGravityHighlight
             val barScale = barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE) / 100f
 
             val composeView = ComposeView(activity).apply {
@@ -537,7 +557,10 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                                     .calculateBottomPadding()
                                             ),
                                         selectedIndex = { targetIndex },
-                                        onSelected = { navigateToTab(it) },
+                                        onSelected = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
+                                            navigateToTab(index)
+                                        },
                                         // Sample WeChat's real content (native ViewPager) into the
                                         // glass. rememberLayerBackdrop would only capture Compose
                                         // pixels, of which there are none behind this overlay bar.
@@ -554,8 +577,8 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             activeContentColor = activeColor
                                         ),
                                         onSelectedTabTap = { index ->
+                                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                             if (visibleTabItems[index].wechatIndex == 0) {
-                                                view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
                                                 onTabClicked(index)
                                             }
                                         },
@@ -568,6 +591,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                             }
                                         },
                                         liquidGlassBlurRadius = blurRadius.dp,
+                                        dynamicGravityHighlight = dynamicGravityHighlight,
                                         iconContent = { item, index ->
                                             val label = stringResource(item.labelRes)
                                             // Key the fill crossfade to the target page (the same
@@ -750,6 +774,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
             var showFinderBadgeInput by remember { mutableStateOf(showFinderBadge) }
             var hideLabelsInput by remember { mutableStateOf(hideLabels) }
             var blurRadiusInput by remember { mutableFloatStateOf(blurRadius.toFloat()) }
+            var dynamicGravityHighlightInput by remember { mutableStateOf(dynamicGravityHighlight) }
             var barScaleInput by remember {
                 mutableFloatStateOf(barScalePercent.coerceIn(MIN_BAR_SCALE, MAX_BAR_SCALE).toFloat())
             }
@@ -797,43 +822,50 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                     },
                                 )
                             }
-                            expandableItem(
-                                expanded = useBackdropInput,
-                                topContent = {
-                                    SwitchWidget(
-                                        iconPlaceholder = false,
-                                        title = stringResource(R.string.nav_use_liquid_glass),
-                                        description = stringResource(R.string.nav_requires_floating_bar),
-                                        checked = useBackdropInput,
-                                        onCheckedChange = {
-                                            useBackdropInput = it
-                                            useBackdrop = it
+                            item(animatedVisibility = useFloatingInput) {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_use_liquid_glass),
+                                    checked = useBackdropInput,
+                                    onCheckedChange = {
+                                        useBackdropInput = it
+                                        useBackdrop = it
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = useFloatingInput && useBackdropInput) {
+                                SwitchWidget(
+                                    iconPlaceholder = false,
+                                    title = stringResource(R.string.nav_dynamic_gravity_highlight),
+                                    description = stringResource(R.string.nav_dynamic_gravity_highlight_summary),
+                                    checked = dynamicGravityHighlightInput,
+                                    onCheckedChange = {
+                                        dynamicGravityHighlightInput = it
+                                        dynamicGravityHighlight = it
+                                    },
+                                )
+                            }
+                            item(animatedVisibility = useFloatingInput && useBackdropInput) {
+                                BaseItemContainer {
+                                    val radius = blurRadiusInput.roundToInt()
+                                    IntNumberPickerWidget(
+                                        title = stringResource(R.string.nav_blur_radius),
+                                        value = radius,
+                                        startInt = MIN_BLUR_RADIUS,
+                                        endInt = MAX_BLUR_RADIUS,
+                                        stepSize = 1,
+                                        valueSuffix = "px",
+                                        onValueChange = {
+                                            blurRadiusInput = it.toFloat()
+                                            blurRadius = it
                                         },
                                     )
-                                },
-                                bottomContent = {
-                                    BaseItemContainer {
-                                        val radius = blurRadiusInput.roundToInt()
-                                        IntNumberPickerWidget(
-                                            title = stringResource(R.string.nav_blur_radius),
-                                            value = radius,
-                                            startInt = MIN_BLUR_RADIUS,
-                                            endInt = MAX_BLUR_RADIUS,
-                                            stepSize = 1,
-                                            valueSuffix = "px",
-                                            onValueChange = {
-                                                blurRadiusInput = it.toFloat()
-                                                blurRadius = it
-                                            },
-                                        )
-                                    }
-                                },
-                            )
-                            item {
+                                }
+                            }
+                            item(animatedVisibility = useFloatingInput) {
                                 SwitchWidget(
                                     iconPlaceholder = false,
                                     title = stringResource(R.string.nav_hide_labels),
-                                    description = stringResource(R.string.nav_requires_floating_bar),
                                     checked = hideLabelsInput,
                                     onCheckedChange = {
                                         hideLabelsInput = it
@@ -882,7 +914,7 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
         showComposeDialog(context) {
             val currentOrder = remember { normalizedTabOrder().toMutableStateList() }
             val currentEnabled = remember {
-                normalizedEnabledTabIndices(currentOrder).toMutableStateList()
+                normalizedEnabledTabIndices().toMutableStateList()
             }
 
             AlertDialogContent(
@@ -943,13 +975,12 @@ object ReplaceNavigationBar : ClickableFeature(), IResolveDex {
                                 )
                                 Switch(
                                     checked = checked,
-                                    enabled = !checked || currentEnabled.size > 1,
                                     onCheckedChange = { enabled ->
                                         if (enabled) {
                                             if (item.wechatIndex !in currentEnabled) {
                                                 currentEnabled += item.wechatIndex
                                             }
-                                        } else if (currentEnabled.size > 1) {
+                                        } else {
                                             currentEnabled.remove(item.wechatIndex)
                                         }
                                     },
