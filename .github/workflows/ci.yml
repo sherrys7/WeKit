@@ -148,13 +148,13 @@ jobs:
           set -euo pipefail
           mkdir -p dist/apk
 
-          expected_abis=$(printf '%s\n' arm64-v8a armeabi-v7a)
+          expected_abis=arm64-v8a
           apk="app/build/outputs/apk/standard/release/app-standard-release.apk"
           test -f "$apk"
 
           actual_abis=$(unzip -Z1 "$apk" 'lib/*/*.so' | cut -d/ -f2 | sort -u)
           if [ "$actual_abis" != "$expected_abis" ]; then
-            echo "::error file=$apk::Expected universal arm64-v8a + armeabi-v7a APK, got: $actual_abis"
+            echo "::error file=$apk::Expected arm64-v8a-only APK, got: $actual_abis"
             exit 1
           fi
 
