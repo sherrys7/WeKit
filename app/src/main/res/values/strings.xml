@@ -732,6 +732,8 @@
     <string name="feature_send_card_message_description">Add the "Send Card Message" function to the long-press menu of the chat input field</string>
     <string name="feature_send_voice_file_name">Send voice file</string>
     <string name="feature_send_voice_file_description">Add the "Send Voice File" function to the long-press menu of the chat input field</string>
+    <string name="feature_text_to_speech_name">Text to speech</string>
+    <string name="feature_text_to_speech_description">Long-press a text message and choose "To Voice" to turn its content into a voice message</string>
     <string name="feature_send_sec_msg_name">Send secure messages</string>
     <string name="feature_send_sec_msg_description">Inject a sec_msg_node marker into outgoing text messages so the long-press menu shows only "Delete" for both sides. Passive mode: applies to every text message; Active modes: long-press the send button or use a trigger prefix to apply it to specific messages</string>
     <string name="send_sec_msg_menu_label">Send secure message</string>

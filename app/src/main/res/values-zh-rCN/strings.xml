@@ -694,6 +694,8 @@
     <string name="feature_send_card_message_description">在聊天输入栏长按菜单中添加「发送卡片消息」功能</string>
     <string name="feature_send_voice_file_name">发送语音文件</string>
     <string name="feature_send_voice_file_description">在聊天输入栏长按菜单中添加「发送语音文件」功能</string>
+    <string name="feature_text_to_speech_name">文字转语音</string>
+    <string name="feature_text_to_speech_description">长按文本消息选择「转语音」, 可将其内容转为语音消息发送</string>
     <string name="feature_send_sec_msg_name">安全消息发送</string>
     <string name="feature_send_sec_msg_description">在自己发出的文本消息 msgsource 中注入 sec_msg_node 标记，双方长按该消息只剩「删除」选项。被动模式：对所有发出的文本消息生效；主动模式：长按发送按钮或使用触发前缀，仅对特定消息生效</string>
     <string name="send_sec_msg_menu_label">发送安全消息</string>
