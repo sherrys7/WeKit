@@ -665,6 +665,17 @@ fn task_configure() -> Result<()> {
     };
     let ar = format!("{ndk_bin_dir}/llvm-ar");
 
+    // Detect the bundled clang resource directory (e.g. ".../lib/clang/21") used by
+    // bindgen to locate its builtin headers (`float.h`, ...) when cross-compiling.
+    let clang_version = fs::read_dir(format!("{ndk_bin_dir}/../lib/clang"))
+        .ok()
+        .and_then(|mut it| {
+            it.find_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
+        })
+        .unwrap_or_default();
+    let sysroot = format!("{ndk_bin_dir}/../sysroot");
+    let resource_dir = format!("{ndk_bin_dir}/../lib/clang/{clang_version}");
+
     let mut out = String::new();
 
     // [target.*] sections — one per ABI.
@@ -683,7 +694,11 @@ fn task_configure() -> Result<()> {
         let cxx = format!("{ndk_bin_dir}/{}{MIN_SDK}-clang++{ext}", spec.clang_prefix);
         out.push_str(&format!("CC_{k} = \"{cc}\"\n", k = spec.env_key));
         out.push_str(&format!("CXX_{k} = \"{cxx}\"\n", k = spec.env_key));
-        out.push_str(&format!("AR_{k} = \"{ar}\"\n\n", k = spec.env_key));
+        out.push_str(&format!("AR_{k} = \"{ar}\"\n", k = spec.env_key));
+        out.push_str(&format!(
+            "BINDGEN_EXTRA_CLANG_ARGS_{} = \"--target={} --sysroot={} -resource-dir={}\"\n\n",
+            spec.cargo_triple, spec.cargo_triple, sysroot, resource_dir
+        ));
     }
 
     let out = out.trim_end_matches('\n').to_owned() + "\n";
