@@ -33,9 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
+import com.composables.icons.materialsymbols.outlined.Graphic_eq
 import com.composables.icons.materialsymbols.outlined.Pause
 import com.composables.icons.materialsymbols.outlined.Play_arrow
 import com.composables.icons.materialsymbols.outlined.Settings
@@ -112,12 +112,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
     fun isSupported(msgInfo: MessageInfo): Boolean =
         msgInfo.type == MessageType.TEXT || msgInfo.type == MessageType.QUOTE
 
-    private val emptyVector = ImageVector.Builder(
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f,
-    ).build()
+    private val micImageVector = MaterialSymbols.Outlined.Graphic_eq
 
     override fun getMenuItems(): List<WeChatMessageContextMenuApi.MenuItem> {
         return listOf(
@@ -125,7 +120,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                 777025,
                 "转语音",
                 MicIcon,
-                emptyVector,
+                micImageVector,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
                     val text = msgInfo.humanReadableRepr.trim()
@@ -155,14 +150,19 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                     else DEFAULT_VOICES + TtsVoice(selectedVoice, selectedVoice)
                 )
             }
+            var customVoices by remember { mutableStateOf(emptyList<TtsVoice>()) }
             var generating by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 Thread {
                     val fetched = fetchVoices()
+                    val custom = fetchUserVoices()
                     mh.post {
                         voices = fetched
-                        if (voiceId !in fetched.map { it.voiceId } && fetched.isNotEmpty()) {
+                        customVoices = custom
+                        val inSystem = fetched.any { it.voiceId == voiceId }
+                        val inCustom = custom.any { it.voiceId == voiceId }
+                        if (!inSystem && !inCustom && fetched.isNotEmpty()) {
                             voiceId = fetched.first().voiceId
                             selectedVoice = voiceId
                         }
@@ -185,13 +185,28 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
 
                         Spacer(Modifier.height(8.dp))
 
-                        DropDownMenuWidget(
-                            title = "音色",
-                            description = null,
-                            value = voiceId,
-                            options = voices.map { DropdownOption(it.voiceId, it.label) },
-                            onValueChange = { voiceId = it; selectedVoice = it },
-                        )
+                        Row(Modifier.fillMaxWidth()) {
+                            DropDownMenuWidget(
+                                modifier = Modifier.weight(1f),
+                                title = "系统音色",
+                                description = null,
+                                value = voiceId,
+                                options = voices.map { DropdownOption(it.voiceId, it.label) },
+                                onValueChange = { voiceId = it; selectedVoice = it },
+                                maxVisibleItems = 6,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            DropDownMenuWidget(
+                                modifier = Modifier.weight(1f),
+                                title = "自定义音色",
+                                description = null,
+                                value = voiceId,
+                                options = customVoices.map { DropdownOption(it.voiceId, it.label) },
+                                onValueChange = { voiceId = it; selectedVoice = it },
+                                enabled = customVoices.isNotEmpty(),
+                                maxVisibleItems = 6,
+                            )
+                        }
 
                         Spacer(Modifier.height(8.dp))
 
@@ -484,6 +499,27 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
         } catch (e: Exception) {
             WeLogger.w(TAG, "fetch voices failed: ${e.message}")
             DEFAULT_VOICES
+        }
+    }
+
+    private fun fetchUserVoices(): List<TtsVoice> {
+        if (apiKey.isBlank()) return emptyList()
+        return try {
+            val resp = httpGet("$API_BASE/api/open/v1/user-voices")
+            val root = JSONObject(resp)
+            val data = root.optJSONArray("data") ?: return emptyList()
+            buildList {
+                for (i in 0 until data.length()) {
+                    val item = data.getJSONObject(i)
+                    val vid = item.optString("voice_id")
+                    if (vid.isEmpty()) continue
+                    val name = item.optString("name")
+                    add(TtsVoice(vid, if (name.isEmpty()) vid else name))
+                }
+            }
+        } catch (e: Exception) {
+            WeLogger.w(TAG, "fetch user voices failed: ${e.message}")
+            emptyList()
         }
     }
 
