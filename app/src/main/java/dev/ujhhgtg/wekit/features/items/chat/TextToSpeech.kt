@@ -1,7 +1,5 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
@@ -22,6 +20,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +52,7 @@ import dev.ujhhgtg.wekit.ui.content.m3.DropDownMenuWidget
 import dev.ujhhgtg.wekit.ui.content.m3.DropdownOption
 import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
 import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
+import dev.ujhhgtg.wekit.ui.utils.MicIcon
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.AudioUtils
 import dev.ujhhgtg.wekit.utils.HostInfo
@@ -60,6 +60,7 @@ import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.delay
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -76,6 +77,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
 
     var apiKey by prefOption("tts_api_key", "")
     var selectedVoice by prefOption("tts_voice_id", "琅琊榜-梅长苏")
+    var selectedEmotion by prefOption("tts_emotion", "平静")
 
     private val mh = Handler(Looper.getMainLooper())
     private var lastWavPath: String? = null
@@ -122,7 +124,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
             WeChatMessageContextMenuApi.MenuItem(
                 777025,
                 "转语音",
-                ColorDrawable(Color.TRANSPARENT),
+                MicIcon,
                 emptyVector,
                 isSupported = ::isSupported,
                 onClick = { view, _, msgInfo ->
@@ -140,14 +142,19 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
     private fun showMainDialog(context: android.content.Context, talker: String, initialText: String) {
         showComposeDialog(context) {
             var inputText by remember { mutableStateOf(initialText) }
-            var voiceId by remember {
+            var voiceId by remember { mutableStateOf(selectedVoice) }
+            var emotion by remember {
                 mutableStateOf(
-                    selectedVoice.takeIf { v -> DEFAULT_VOICES.any { it.voiceId == v } }
-                        ?: DEFAULT_VOICES.first().voiceId
+                    selectedEmotion.takeIf { e -> EMOTIONS.any { it.first == e } }
+                        ?: EMOTIONS.first().first
                 )
             }
-            var emotion by remember { mutableStateOf(EMOTIONS.first().first) }
-            var voices by remember { mutableStateOf(DEFAULT_VOICES) }
+            var voices by remember {
+                mutableStateOf(
+                    if (DEFAULT_VOICES.any { it.voiceId == selectedVoice }) DEFAULT_VOICES
+                    else DEFAULT_VOICES + TtsVoice(selectedVoice, selectedVoice)
+                )
+            }
             var generating by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
@@ -157,6 +164,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                         voices = fetched
                         if (voiceId !in fetched.map { it.voiceId } && fetched.isNotEmpty()) {
                             voiceId = fetched.first().voiceId
+                            selectedVoice = voiceId
                         }
                     }
                 }.start()
@@ -179,7 +187,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
 
                         DropDownMenuWidget(
                             title = "音色",
-                            description = "选择配音音色",
+                            description = null,
                             value = voiceId,
                             options = voices.map { DropdownOption(it.voiceId, it.label) },
                             onValueChange = { voiceId = it; selectedVoice = it },
@@ -189,10 +197,10 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
 
                         DropDownMenuWidget(
                             title = "语气",
-                            description = "选择情感语气",
+                            description = null,
                             value = emotion,
                             options = EMOTIONS.map { DropdownOption(it.first, it.first) },
-                            onValueChange = { emotion = it },
+                            onValueChange = { emotion = it; selectedEmotion = it },
                         )
 
                         Spacer(Modifier.height(12.dp))
@@ -222,7 +230,6 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                                     ) { wavPath ->
                                         generating = false
                                         if (wavPath != null) {
-                                            onDismiss()
                                             showPreviewDialog(context, talker, wavPath)
                                         } else {
                                             showToast(context, "生成失败，请检查 API Key 与网络")
@@ -321,6 +328,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
         showComposeDialog(context, directlyDismissable = false) {
             var playing by remember { mutableStateOf(false) }
             var durationMs by remember { mutableIntStateOf(0) }
+            var positionMs by remember { mutableIntStateOf(0) }
             var player by remember { mutableStateOf<MediaPlayer?>(null) }
 
             DisposableEffect(Unit) {
@@ -328,6 +336,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                     setDataSource(wavPath)
                     prepare()
                     durationMs = duration
+                    setOnCompletionListener { mh.post { playing = false } }
                 }
                 player = p
                 onDispose {
@@ -336,13 +345,30 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                 }
             }
 
+            LaunchedEffect(playing) {
+                while (playing) {
+                    player?.let { positionMs = it.currentPosition }
+                    delay(200)
+                }
+            }
+
             AlertDialogContent(
                 title = { Text("试听语音") },
                 text = {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            if (playing) "播放中… ${formatDuration(durationMs)}" else formatDuration(durationMs),
+                        Slider(
+                            value = positionMs.toFloat().coerceIn(0f, durationMs.toFloat()),
+                            onValueChange = {
+                                positionMs = it.toInt()
+                                player?.seekTo(it.toInt())
+                            },
+                            valueRange = 0f..durationMs.toFloat().coerceAtLeast(1f),
+                            modifier = Modifier.fillMaxWidth(),
                         )
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(formatDuration(positionMs))
+                            Text(formatDuration(durationMs))
+                        }
                         IconButton(
                             onClick = {
                                 val p = player ?: return@IconButton
@@ -350,7 +376,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
                                     p.pause()
                                     playing = false
                                 } else {
-                                    p.seekTo(0)
+                                    p.seekTo(positionMs)
                                     p.start()
                                     playing = true
                                 }
