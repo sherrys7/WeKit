@@ -1841,6 +1841,7 @@
         <item quantity="other">已转发 %1$d/%2$d 个对象</item>
     </plurals>
     <string name="chat_forward_menu">转发</string>
+    <string name="chat_tts_menu">转语音</string>
     <string name="chat_forward_select_recipients">选择转发对象</string>
     <string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
     <plurals name="chat_forwarding_messages">

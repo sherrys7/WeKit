@@ -118,7 +118,7 @@ object TextToSpeech : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsPro
         return listOf(
             WeChatMessageContextMenuApi.MenuItem(
                 777025,
-                "转语音",
+                localizedChatString(R.string.chat_tts_menu),
                 MicIcon,
                 micImageVector,
                 isSupported = ::isSupported,

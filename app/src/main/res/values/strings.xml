@@ -1891,6 +1891,7 @@
         <item quantity="other">Forwarded to %1$d of %2$d recipients</item>
     </plurals>
     <string name="chat_forward_menu">Forward</string>
+    <string name="chat_tts_menu">Text to speech</string>
     <string name="chat_forward_select_recipients">Select recipients</string>
     <string name="chat_forward_select_at_least_one">Select at least one contact</string>
     <plurals name="chat_forwarding_messages">
