@@ -692,6 +692,8 @@
     <string name="feature_send_voice_file_description">在聊天输入栏长按菜单中添加「发送语音文件」功能</string>
     <string name="feature_text_to_speech_name">文字转语音</string>
     <string name="feature_text_to_speech_description">长按文本消息选择「转语音」, 可将其内容转为语音消息发送</string>
+    <string name="feature_analyze_messages_name">分析消息</string>
+    <string name="feature_analyze_messages_description">长按消息选择「分析消息」, 统计当前聊天记录并展示多维分析结果</string>
     <string name="feature_send_sec_msg_name">安全消息发送</string>
     <string name="feature_send_sec_msg_description">在自己发出的文本消息 msgsource 中注入 sec_msg_node 标记，双方长按该消息只剩「删除」选项。被动模式：对所有发出的文本消息生效；主动模式：长按发送按钮或使用触发前缀，仅对特定消息生效</string>
     <string name="send_sec_msg_menu_label">发送安全消息</string>
@@ -1846,6 +1848,7 @@
     </plurals>
     <string name="chat_forward_menu">转发</string>
     <string name="chat_tts_menu">转语音</string>
+    <string name="chat_analyze_menu">分析消息</string>
     <string name="chat_forward_select_recipients">选择转发对象</string>
     <string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
     <plurals name="chat_forwarding_messages">

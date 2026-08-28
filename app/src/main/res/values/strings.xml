@@ -730,6 +730,8 @@
     <string name="feature_send_voice_file_description">Add the "Send Voice File" function to the long-press menu of the chat input field</string>
     <string name="feature_text_to_speech_name">Text to speech</string>
     <string name="feature_text_to_speech_description">Long-press a text message and choose "To Voice" to turn its content into a voice message</string>
+    <string name="feature_analyze_messages_name">Analyze messages</string>
+    <string name="feature_analyze_messages_description">Long-press a message and choose "Analyze" to show chat statistics for the current conversation</string>
     <string name="feature_send_sec_msg_name">Send secure messages</string>
     <string name="feature_send_sec_msg_description">Inject a sec_msg_node marker into outgoing text messages so the long-press menu shows only "Delete" for both sides. Passive mode: applies to every text message; Active modes: long-press the send button or use a trigger prefix to apply it to specific messages</string>
     <string name="send_sec_msg_menu_label">Send secure message</string>
@@ -1896,6 +1898,7 @@
     </plurals>
     <string name="chat_forward_menu">Forward</string>
     <string name="chat_tts_menu">Text to speech</string>
+    <string name="chat_analyze_menu">Analyze messages</string>
     <string name="chat_forward_select_recipients">Select recipients</string>
     <string name="chat_forward_select_at_least_one">Select at least one contact</string>
     <plurals name="chat_forwarding_messages">
