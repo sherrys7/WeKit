@@ -2,8 +2,13 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 
 import android.view.View
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.Column
@@ -19,12 +24,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,15 +42,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
-import com.composables.icons.materialsymbols.outlined.Close
 import com.composables.icons.materialsymbols.outlined.Content_copy
 import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Expand_less
+import com.composables.icons.materialsymbols.outlined.Expand_more
 import com.composables.icons.materialsymbols.outlined.Photo_library
 import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
+import com.composables.icons.materialsymbols.outlined.Tune
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
@@ -133,12 +144,18 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var customTopic by remember { mutableStateOf("") }
         var modelCapacity by remember { mutableStateOf(ModelCapacity.K256) }
         var showAiSettings by remember { mutableStateOf(false) }
+        var collapsed by remember { mutableStateOf(false) }
+        var showAdvanced by remember { mutableStateOf(false) }
+        var generatedRangeRes by remember { mutableStateOf<Int?>(null) }
+        var generatedAt by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
         fun startGenerate() {
             isLoading = true
             errorMessage = null
             report = null
+            generatedRangeRes = timeRange.labelRes
+            generatedAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
             scope.launch {
                 val result = generateReport(
                     talker,
@@ -157,6 +174,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             }
         }
 
+        val rangeLabel = remember(timeRange) {
+            val (start, end) = groupRangeStartEnd(timeRange)
+            val f = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+            "${f.format(Date(start))} ~ ${f.format(Date(end))}"
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -166,29 +189,30 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                 .imePadding()
                 .padding(horizontal = 16.dp),
         ) {
-            // 顶部栏：左上角标题，右上角 API 设置 + 关闭
+            // 标题区：分析报告 + 日期范围，右上角调节图标
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringResource(R.string.ui_group_analyse_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = { showAiSettings = true }) {
-                    Icon(
-                        MaterialSymbols.Outlined.Settings,
-                        contentDescription = null,
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.ui_group_analyse_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = rangeLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(onClick = { collapsed = !collapsed }) {
                     Icon(
-                        MaterialSymbols.Outlined.Close,
+                        MaterialSymbols.Outlined.Tune,
                         contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
@@ -198,215 +222,303 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // 分析时段
-                Text(
-                    text = stringResource(R.string.ui_group_analyse_range),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(2.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    GroupTimeRange.entries.forEach { range ->
-                        TextButton(
-                            onClick = { timeRange = range },
-                            enabled = !isLoading,
-                        ) {
-                            Text(
-                                stringResource(range.labelRes),
-                                color = if (timeRange == range) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.ui_group_analyse_range_tip),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // 模型容量
-                Text(
-                    text = stringResource(R.string.ui_group_model_capacity),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(2.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    ModelCapacity.entries.forEach { capacity ->
-                        TextButton(
-                            onClick = { modelCapacity = capacity },
-                            enabled = !isLoading,
-                        ) {
-                            Text(
-                                text = capacity.label,
-                                color = if (modelCapacity == capacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-                Text(
-                    text = stringResource(R.string.ui_group_model_capacity_tip),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                // 自定义主题
-                Text(
-                    text = stringResource(R.string.ui_group_custom_topic),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Spacer(Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = customTopic,
-                    onValueChange = { customTopic = it },
-                    placeholder = { Text(stringResource(R.string.ui_group_custom_topic_hint)) },
-                    minLines = 2,
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
+
+                // 分组标题
+                Text(
+                    text = stringResource(R.string.ui_group_smart_insight),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
                 )
 
                 Spacer(Modifier.height(8.dp))
 
-                // 开始生成
-                Button(
-                    onClick = ::startGenerate,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.ui_group_generate_start))
-                }
-
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
-                if (isLoading) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.padding(end = 12.dp),
-                            strokeWidth = 3.dp,
-                        )
-                        Text("正在生成智能分析...")
-                    }
-                }
-
-                errorMessage?.let { err ->
-                    Text(
-                        text = err,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                    )
-                }
-
-                report?.let { result ->
-                    Text(
-                        text = stringResource(R.string.ui_group_result),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                    )
-                    MarkdownText(
-                        markdown = result,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        text = stringResource(R.string.ui_tip_ai_only),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
-                }
-            }
-
-            // 底部操作区：复制文字 / 发送文字 / 保存图像 / 发送图像
-            if (!isLoading && report != null) {
-                HorizontalDivider()
+                // 主卡片
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(24.dp),
+                        )
+                        .border(
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                            RoundedCornerShape(24.dp),
+                        )
+                        .padding(16.dp),
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Button(
-                            onClick = {
-                                copyToClipboard(report!!)
-                                showToast("已复制报告内容")
-                            },
-                            modifier = Modifier.weight(1f),
+                    // 卡片头部：魔法棒图标 + 标题 + 折叠箭头
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(MaterialSymbols.Outlined.Content_copy, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.ui_group_copy_text))
+                            Icon(
+                                MaterialSymbols.Outlined.Auto_awesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
                         }
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    if (WeMessageApi.sendText(talker, report!!)) {
-                                        showToast("已发送报告")
-                                        onDismiss()
-                                    } else {
-                                        showToast("发送失败，请查看日志")
-                                    }
-                                }
-                            },
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = stringResource(R.string.ui_group_summary_card_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(MaterialSymbols.Outlined.Send, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.ui_group_send_text))
+                        )
+                        IconButton(onClick = { collapsed = !collapsed }) {
+                            Icon(
+                                if (collapsed) MaterialSymbols.Outlined.Expand_more else MaterialSymbols.Outlined.Expand_less,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Button(
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
-                                    showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Icon(MaterialSymbols.Outlined.Download, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.ui_group_save_image))
+
+                    if (!collapsed) {
+                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
+
+                        // 选择总结时段
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.ui_group_select_period),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(onClick = { showAdvanced = !showAdvanced }, enabled = !isLoading) {
+                                Icon(
+                                    MaterialSymbols.Outlined.Tune,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            IconButton(onClick = { showAiSettings = true }, enabled = !isLoading) {
+                                Icon(
+                                    MaterialSymbols.Outlined.Settings,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
-                        Button(
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    val path = GroupReportImage.renderToFile(report!!)
-                                    if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
-                                        showToastSuspend("长图已发送")
-                                    } else {
-                                        showToastSuspend("发送长图失败，请查看日志")
+
+                        Spacer(Modifier.height(4.dp))
+
+                        // 时段标签横向滚动
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            GroupTimeRange.entries.forEach { range ->
+                                val selected = timeRange == range
+                                Surface(
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent,
+                                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+                                ) {
+                                    Text(
+                                        text = stringResource(range.labelRes),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .clickable(enabled = !isLoading) { timeRange = range }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    )
+                                }
+                            }
+                        }
+
+                        // 模型容量（筛选展开）
+                        if (showAdvanced) {
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.ui_group_model_capacity),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ModelCapacity.entries.forEach { capacity ->
+                                    val selected = modelCapacity == capacity
+                                    Surface(
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    ) {
+                                        Text(
+                                            text = capacity.label,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .clickable(enabled = !isLoading) { modelCapacity = capacity }
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                        )
                                     }
                                 }
-                            },
-                            modifier = Modifier.weight(1f),
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // 自定义主题输入框
+                        OutlinedTextField(
+                            value = customTopic,
+                            onValueChange = { customTopic = it },
+                            placeholder = { Text(stringResource(R.string.ui_group_custom_topic_hint)) },
+                            minLines = 2,
+                            maxLines = 4,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // 开始生成
+                        Button(
+                            onClick = ::startGenerate,
+                            enabled = !isLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
                         ) {
-                            Icon(MaterialSymbols.Outlined.Photo_library, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.ui_group_send_image))
+                            Icon(MaterialSymbols.Outlined.Auto_awesome, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.ui_group_generate_start))
+                        }
+
+                        if (isLoading) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 12.dp),
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("正在生成智能分析...", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+
+                        errorMessage?.let { err ->
+                            Text(
+                                text = err,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
+                        }
+
+                        report?.let { result ->
+                            Spacer(Modifier.height(12.dp))
+                            val rangeText = generatedRangeRes?.let { stringResource(it) }
+                            val timeText = generatedAt
+                            if (rangeText != null || timeText != null) {
+                                Text(
+                                    text = buildString {
+                                        rangeText?.let { append("【").append(it).append("总结】") }
+                                        timeText?.let { append("生成时间：").append(it) }
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            MarkdownText(
+                                markdown = result,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }
+
+                // 底部操作区：复制文字 / 发送文字 / 保存图像 / 发送图像
+                if (!isLoading && report != null) {
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Button(
+                                onClick = {
+                                    copyToClipboard(report!!)
+                                    showToast("已复制报告内容")
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(MaterialSymbols.Outlined.Content_copy, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.ui_group_copy_text))
+                            }
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        if (WeMessageApi.sendText(talker, report!!)) {
+                                            showToast("已发送报告")
+                                            onDismiss()
+                                        } else {
+                                            showToast("发送失败，请查看日志")
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(MaterialSymbols.Outlined.Send, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.ui_group_send_text))
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Button(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
+                                        showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(MaterialSymbols.Outlined.Download, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.ui_group_save_image))
+                            }
+                            Button(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        val path = GroupReportImage.renderToFile(report!!)
+                                        if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
+                                            showToastSuspend("长图已发送")
+                                        } else {
+                                            showToastSuspend("发送长图失败，请查看日志")
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Icon(MaterialSymbols.Outlined.Photo_library, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.ui_group_send_image))
+                            }
+                        }
+                    }
+                    }
             }
         }
 
@@ -933,8 +1045,11 @@ private enum class GroupTimeRange(val labelRes: Int) {
     TODAY(R.string.ui_group_range_today),
     YESTERDAY(R.string.ui_group_range_yesterday),
     THIS_WEEK(R.string.ui_group_range_this_week),
+    LAST_WEEK(R.string.ui_group_range_last_week),
     THIS_MONTH(R.string.ui_group_range_this_month),
+    LAST_MONTH(R.string.ui_group_range_last_month),
     THIS_YEAR(R.string.ui_group_range_this_year),
+    LAST_YEAR(R.string.ui_group_range_last_year),
 }
 
 /** AI 上下文容量档位（token） */
@@ -969,13 +1084,34 @@ private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
             startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
             clearTime(startCal)
         }
+        GroupTimeRange.LAST_WEEK -> {
+            startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            clearTime(startCal)
+            startCal.add(Calendar.WEEK_OF_YEAR, -1)
+            endCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            clearTime(endCal)
+        }
         GroupTimeRange.THIS_MONTH -> {
             startCal.set(Calendar.DAY_OF_MONTH, 1)
             clearTime(startCal)
         }
+        GroupTimeRange.LAST_MONTH -> {
+            startCal.set(Calendar.DAY_OF_MONTH, 1)
+            clearTime(startCal)
+            startCal.add(Calendar.MONTH, -1)
+            endCal.set(Calendar.DAY_OF_MONTH, 1)
+            clearTime(endCal)
+        }
         GroupTimeRange.THIS_YEAR -> {
             startCal.set(Calendar.DAY_OF_YEAR, 1)
             clearTime(startCal)
+        }
+        GroupTimeRange.LAST_YEAR -> {
+            startCal.set(Calendar.DAY_OF_YEAR, 1)
+            clearTime(startCal)
+            startCal.add(Calendar.YEAR, -1)
+            endCal.set(Calendar.DAY_OF_YEAR, 1)
+            clearTime(endCal)
         }
     }
     return startCal.timeInMillis to endCal.timeInMillis
