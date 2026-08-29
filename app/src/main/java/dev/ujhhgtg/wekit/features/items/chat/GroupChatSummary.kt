@@ -15,7 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
+import com.composables.icons.materialsymbols.outlined.Settings
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderType
@@ -44,8 +47,10 @@ import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.ui.agent.settings.label
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
+import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.VectorPathDrawable
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
@@ -111,6 +116,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var errorMessage by remember { mutableStateOf<String?>(null) }
         var messageCount by remember { mutableIntStateOf(500) }
         var depth by remember { mutableStateOf(2) } // 0=快速 1=标准 2=深度 3=武汉口语
+        var showAiSettings by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
         val groupName = remember(talker) {
@@ -118,7 +124,23 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         }
 
         AlertDialogContent(
-            title = { Text(stringResource(R.string.ui_group_analyse_title)) },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_group_analyse_title),
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { showAiSettings = true }) {
+                        Icon(
+                            MaterialSymbols.Outlined.Settings,
+                            contentDescription = null,
+                        )
+                    }
+                }
+            },
             text = {
                 Column(
                     modifier = Modifier
@@ -303,6 +325,120 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     TextButton(onClick = onDismiss) {
                         Text("关闭")
                     }
+                }
+            },
+        )
+
+        if (showAiSettings) {
+            AiSettingsDialog(onDismiss = { showAiSettings = false })
+        }
+    }
+
+    @Composable
+    private fun AiSettingsDialog(onDismiss: () -> Unit) {
+        var providerTypeName by remember { mutableStateOf(AiModelConfig.providerTypeName) }
+        var baseUrl by remember { mutableStateOf(AiModelConfig.baseUrl) }
+        var apiKey by remember { mutableStateOf(AiModelConfig.apiKey) }
+        var modelId by remember { mutableStateOf(AiModelConfig.modelId) }
+
+        AlertDialogContent(
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_group_ai_settings_title),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    val providerTypes = listOf(
+                        ModelProviderType.OPENAI_CHAT_COMPLETION,
+                        ModelProviderType.ANTHROPIC_MESSAGES,
+                        ModelProviderType.GEMINI_GENERATE_CONTENT,
+                        ModelProviderType.LOCAL_LLAMA,
+                    )
+                    Text(
+                        text = stringResource(R.string.ui_group_ai_settings_provider),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        providerTypes.forEach { type ->
+                            TextButton(
+                                onClick = { providerTypeName = type.name },
+                            ) {
+                                Text(
+                                    text = type.label(),
+                                    color = if (providerTypeName == type.name) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = baseUrl,
+                        onValueChange = { baseUrl = it },
+                        label = { Text(stringResource(R.string.ui_group_ai_settings_base_url)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        label = { Text(stringResource(R.string.ui_group_ai_settings_api_key)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = modelId,
+                        onValueChange = { modelId = it },
+                        label = { Text(stringResource(R.string.ui_group_ai_settings_model_id)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        AiModelConfig.providerTypeName = providerTypeName
+                        AiModelConfig.baseUrl = baseUrl.trim()
+                        AiModelConfig.apiKey = apiKey.trim()
+                        AiModelConfig.modelId = modelId.trim()
+                        showToast("已保存 AI 配置")
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.dialog_cancel))
                 }
             },
         )

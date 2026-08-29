@@ -1856,6 +1856,11 @@
     <string name="ui_group_wuhan">武漢口語</string>
     <string name="ui_group_result">分析結果</string>
     <string name="ui_tip_ai_only">AI分析僅供參考，內容存在概率偏差</string>
+    <string name="ui_group_ai_settings_title">AI 配置</string>
+    <string name="ui_group_ai_settings_provider">服務商</string>
+    <string name="ui_group_ai_settings_base_url">介面位址</string>
+    <string name="ui_group_ai_settings_api_key">API Key</string>
+    <string name="ui_group_ai_settings_model_id">模型 ID</string>
     <string name="btn_re_analyse">重新分析</string>
     <string name="btn_copy">複製結果</string>
     <string name="btn_reply">生成話題小結</string>

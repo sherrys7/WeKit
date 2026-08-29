@@ -1860,6 +1860,11 @@
     <string name="ui_group_wuhan">武汉口语</string>
     <string name="ui_group_result">分析结果</string>
     <string name="ui_tip_ai_only">AI分析仅供参考，内容存在概率偏差</string>
+    <string name="ui_group_ai_settings_title">AI 配置</string>
+    <string name="ui_group_ai_settings_provider">服务商</string>
+    <string name="ui_group_ai_settings_base_url">接口地址</string>
+    <string name="ui_group_ai_settings_api_key">API Key</string>
+    <string name="ui_group_ai_settings_model_id">模型 ID</string>
     <string name="btn_re_analyse">重新分析</string>
     <string name="btn_copy">复制结果</string>
     <string name="btn_reply">生成话题小结</string>
