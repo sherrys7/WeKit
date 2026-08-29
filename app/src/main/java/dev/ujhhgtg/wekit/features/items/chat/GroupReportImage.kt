@@ -16,8 +16,6 @@ import dev.ujhhgtg.wekit.utils.fs.createDirsSafe
 import java.io.FileOutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
-import kotlin.io.path.parent
-import kotlin.io.path.toFile
 
 /**
  * 将群聊分析报告（Markdown 文本）渲染为白底长图并保存。
@@ -32,12 +30,11 @@ object GroupReportImage {
     private const val QUOTE_INDENT_PX = 24
     private const val LINE_HEIGHT_RATIO = 1.4f
     private const val BACKGROUND_COLOR = Color.WHITE
-    private const val TEXT_COLOR = Color.parseColor("#2A2A2A")
-    private const val MUTED_COLOR = Color.parseColor("#8A8A8A")
-    private const val ACCENT_COLOR = Color.parseColor("#07C160")
-    private const val CODE_BG_COLOR = Color.parseColor("#F2F3F5")
-    private const val BULLET_COLOR = Color.parseColor("#3C3C3C")
-    private const val TITLE_PREFIX_COLOR = Color.parseColor("#07C160")
+    private val TEXT_COLOR = Color.parseColor("#2A2A2A")
+    private val MUTED_COLOR = Color.parseColor("#8A8A8A")
+    private val ACCENT_COLOR = Color.parseColor("#07C160")
+    private val CODE_BG_COLOR = Color.parseColor("#F2F3F5")
+    private val BULLET_COLOR = Color.parseColor("#3C3C3C")
 
     /** 生成长图并写入模块缓存目录，返回文件路径 */
     fun renderToFile(markdown: String): Path {
@@ -119,7 +116,7 @@ object GroupReportImage {
                     color = if (block is Block.Ordered) TEXT_COLOR else BULLET_COLOR
                     typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 }
-                canvas.drawText(block.marker, 0f, blockPaint.fontMetrics.ascent * -1 + blockPaint.fontSize / 2, bulletPaint)
+                canvas.drawText(block.marker, 0f, blockPaint.fontMetrics.ascent * -1 + blockPaint.textSize / 2, bulletPaint)
                 canvas.translate(LIST_INDENT_PX.toFloat(), 0f)
             }
             if (block is Block.Quote) {
@@ -152,10 +149,11 @@ object GroupReportImage {
         else -> contentWidth
     }
 
-    private fun buildLayout(block: Block, paint: Paint, contentWidth: Int): android.text.StaticLayout {
+    private fun buildLayout(block: Block, paint: android.text.TextPaint, contentWidth: Int): android.text.StaticLayout {
         val text = when (block) {
             is Block.Heading -> block.text
-            is Block.Bullet, is Block.Ordered -> block.content
+            is Block.Bullet -> block.content
+            is Block.Ordered -> block.content
             is Block.Quote -> block.content
             is Block.Code -> block.code
             is Block.Paragraph -> block.text
@@ -167,8 +165,8 @@ object GroupReportImage {
             .build()
     }
 
-    private fun buildPaintFor(block: Block): Paint {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private fun buildPaintFor(block: Block): android.text.TextPaint {
+        val paint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TEXT_COLOR
             textSize = 34f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
