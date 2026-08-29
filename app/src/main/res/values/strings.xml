@@ -660,6 +660,10 @@
     <string name="feature_forward_favorite_voices_description">Allow voice forwarding from "Favorites" in the chat menu and "My" Favorites page</string>
     <string name="feature_forward_messages_name">Forward messages</string>
     <string name="feature_forward_messages_description">Add a forward button to the message long press menu, which can be forwarded in batches to friends or group chats</string>
+    <string name="feature_group_chat_summary_name">Group Chat Summary</string>
+    <string name="feature_group_chat_summary_description">Add AI summary entry to group chat long-press menu</string>
+    <string name="feature_auto_accept_friend_requests_name">Auto Accept Friend Requests</string>
+    <string name="feature_auto_accept_friend_requests_description">Auto accept friend requests with delay, welcome message and blacklist</string>
     <string name="feature_half_screen_album_picker_name">Half screen album selector</string>
     <string name="feature_half_screen_album_picker_description">Display the album selector, image preview and search page of the chat "+" panel as half-screen cards, with the chat content visible above (the image editor remains full-screen)</string>
     <string name="feature_hide_messages_avatars_name">Hide message avatar</string>
@@ -730,8 +734,6 @@
     <string name="feature_send_voice_file_description">Add the "Send Voice File" function to the long-press menu of the chat input field</string>
     <string name="feature_text_to_speech_name">Text to speech</string>
     <string name="feature_text_to_speech_description">Long-press a text message and choose "To Voice" to turn its content into a voice message</string>
-    <string name="feature_analyze_messages_name">Analyze messages</string>
-    <string name="feature_analyze_messages_description">Long-press a message and choose "Analyze" to show chat statistics for the current conversation</string>
     <string name="feature_send_sec_msg_name">Send secure messages</string>
     <string name="feature_send_sec_msg_description">Inject a sec_msg_node marker into outgoing text messages so the long-press menu shows only "Delete" for both sides. Passive mode: applies to every text message; Active modes: long-press the send button or use a trigger prefix to apply it to specific messages</string>
     <string name="send_sec_msg_menu_label">Send secure message</string>
@@ -1898,7 +1900,19 @@
     </plurals>
     <string name="chat_forward_menu">Forward</string>
     <string name="chat_tts_menu">Text to speech</string>
-    <string name="chat_analyze_menu">Analyze messages</string>
+    <string name="ui_group_analyse_title">Group Chat AI Analysis</string>
+    <string name="ui_group_analyse_context_count">Context Messages</string>
+    <string name="ui_group_analyse_context_tip">More messages analyzed, more comprehensive results, higher token usage</string>
+    <string name="ui_group_analyse_deep">Analysis Depth</string>
+    <string name="ui_group_fast">Quick Brief</string>
+    <string name="ui_group_normal">Standard</string>
+    <string name="ui_group_deep">Deep Analysis</string>
+    <string name="ui_group_wuhan">Wuhan Dialect</string>
+    <string name="ui_group_result">Analysis Result</string>
+    <string name="ui_tip_ai_only">AI analysis is for reference only, content may have probabilistic deviations</string>
+    <string name="btn_re_analyse">Re-analyze</string>
+    <string name="btn_copy">Copy Result</string>
+    <string name="btn_reply">Generate Topic Summary</string>
     <string name="chat_forward_select_recipients">Select recipients</string>
     <string name="chat_forward_select_at_least_one">Select at least one contact</string>
     <plurals name="chat_forwarding_messages">

@@ -717,6 +717,31 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /**
+     * 获取指定会话在 [startTime, endTime] 时间窗口内的【消息】（升序）
+     * @param convId 会话 ID（单聊为对方 wxid，群聊为 xxx@chatroom）
+     * @param startTime 起始时间（毫秒时间戳，含）
+     * @param endTime 结束时间（毫秒时间戳，含）
+     */
+    fun getMessagesInRange(convId: String, startTime: Long, endTime: Long): List<WeMessage> {
+        if (convId.isEmpty()) return emptyList()
+        val sql = """
+            SELECT * FROM message WHERE talker = ? AND createTime BETWEEN ? AND ?
+            ORDER BY createTime ASC
+        """.trimIndent()
+        return executeQuery(sql, arrayOf(convId, startTime, endTime)).map { row ->
+            WeMessage(
+                msgId = row.long("msgId"),
+                msgSvrId = row.long("msgSvrId"),
+                talker = row.str("talker"),
+                content = row.str("content"),
+                typeCode = row.int("type"),
+                createTime = row.long("createTime"),
+                isSend = row.int("isSend")
+            )
+        }
+    }
+
+    /**
      * 获取每个会话最近一条消息的时间
      * @return 会话 wxId 到最近消息时间（毫秒时间戳）的映射
      */
