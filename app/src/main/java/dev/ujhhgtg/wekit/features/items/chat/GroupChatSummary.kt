@@ -985,34 +985,37 @@ private enum class ModelCapacity(val tokens: Long, val label: String) {
 /** 计算时间段 [start, end]（秒时间戳，与微信 message.createTime 单位一致） */
 private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
     val now = System.currentTimeMillis()
-    val cal = Calendar.getInstance().apply { timeInMillis = now }
-    val startMillis: Long = when (range) {
-        GroupTimeRange.TODAY -> {
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-            cal.timeInMillis
-        }
+    val startCal = Calendar.getInstance().apply { timeInMillis = now }
+    val endCal = Calendar.getInstance().apply { timeInMillis = now }
+
+    fun clearTime(c: Calendar) {
+        c.set(Calendar.HOUR_OF_DAY, 0)
+        c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0)
+        c.set(Calendar.MILLISECOND, 0)
+    }
+
+    when (range) {
+        GroupTimeRange.TODAY -> clearTime(startCal)
         GroupTimeRange.YESTERDAY -> {
-            cal.add(Calendar.DAY_OF_YEAR, -1)
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-            cal.timeInMillis
+            startCal.add(Calendar.DAY_OF_YEAR, -1)
+            clearTime(startCal)
+            clearTime(endCal)
         }
         GroupTimeRange.THIS_WEEK -> {
-            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-            cal.timeInMillis
+            startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            clearTime(startCal)
         }
         GroupTimeRange.THIS_MONTH -> {
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-            cal.timeInMillis
+            startCal.set(Calendar.DAY_OF_MONTH, 1)
+            clearTime(startCal)
         }
         GroupTimeRange.THIS_YEAR -> {
-            cal.set(Calendar.DAY_OF_YEAR, 1)
-            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
-            cal.timeInMillis
+            startCal.set(Calendar.DAY_OF_YEAR, 1)
+            clearTime(startCal)
         }
     }
-    return startMillis / 1000 to now / 1000
+    return startCal.timeInMillis / 1000 to endCal.timeInMillis / 1000
 }
 
 private class GroupSummaryIcon : VectorPathDrawable(
