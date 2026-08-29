@@ -805,8 +805,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         val totalCount = messages.size
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val startTime = dateFormat.format(Date(messages.first().createTime))
-        val endTime = dateFormat.format(Date(messages.last().createTime))
+        val startTime = dateFormat.format(Date(messages.first().createTime * 1000L))
+        val endTime = dateFormat.format(Date(messages.last().createTime * 1000L))
 
         val typeCounts = mutableMapOf<String, Int>()
         val senderCounts = mutableMapOf<String, MutableList<WeMessage>>()
@@ -826,7 +826,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             val senderId = extractSenderId(msg, membersMap)
             senderCounts.getOrPut(senderId) { mutableListOf() }.add(msg)
 
-            val hour = (msg.createTime / 1000) % 86400 / 3600
+            val hour = (msg.createTime % 86400) / 3600
             val period = when {
                 hour < 6 -> "凌晨"
                 hour < 12 -> "上午"
@@ -982,11 +982,11 @@ private enum class ModelCapacity(val tokens: Long, val label: String) {
     M1(1024 * 1024L, "1M"),
 }
 
-/** 计算时间段 [start, end]（毫秒时间戳） */
+/** 计算时间段 [start, end]（秒时间戳，与微信 message.createTime 单位一致） */
 private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
     val now = System.currentTimeMillis()
     val cal = Calendar.getInstance().apply { timeInMillis = now }
-    val start: Long = when (range) {
+    val startMillis: Long = when (range) {
         GroupTimeRange.TODAY -> {
             cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
             cal.timeInMillis
@@ -1012,7 +1012,7 @@ private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
             cal.timeInMillis
         }
     }
-    return start to now
+    return startMillis / 1000 to now / 1000
 }
 
 private class GroupSummaryIcon : VectorPathDrawable(
