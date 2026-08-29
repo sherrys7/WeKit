@@ -5,6 +5,7 @@ import android.view.View
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +22,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +47,7 @@ import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
+import dev.ujhhgtg.wekit.ui.agent.MarkdownText
 import dev.ujhhgtg.wekit.ui.agent.settings.label
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
@@ -54,15 +55,19 @@ import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.VectorPathDrawable
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
+import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.android.showToastSuspend
 import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.io.path.absolutePathString
 
 object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
     override val technicalId = "群聊统计报告"
@@ -114,8 +119,10 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var report by remember { mutableStateOf<String?>(null) }
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
-        var messageCount by remember { mutableIntStateOf(500) }
-        var depth by remember { mutableStateOf(2) } // 0=快速 1=标准 2=深度 3=武汉口语
+        var timeRange by remember { mutableStateOf(GroupTimeRange.TODAY) }
+        var depth by remember { mutableStateOf(2) } // 0=快速 1=标准 2=深度
+        var customTopic by remember { mutableStateOf("") }
+        var modelCapacity by remember { mutableStateOf(ModelCapacity.K256) }
         var showAiSettings by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
@@ -155,26 +162,28 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                     Spacer(Modifier.height(8.dp))
 
-                    // 分析上下文条数
+                    // 分析时段
                     Text(
-                        text = stringResource(R.string.ui_group_analyse_context_count),
+                        text = stringResource(R.string.ui_group_analyse_range),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { messageCount = 200 }, enabled = !isLoading) {
-                            Text("200条", color = if (messageCount == 200) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
-                        TextButton(onClick = { messageCount = 500 }, enabled = !isLoading) {
-                            Text("500条", color = if (messageCount == 500) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        }
-                        TextButton(onClick = { messageCount = 1000 }, enabled = !isLoading) {
-                            Text("1000条", color = if (messageCount == 1000) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
+                        GroupTimeRange.entries.forEach { range ->
+                            TextButton(
+                                onClick = { timeRange = range },
+                                enabled = !isLoading,
+                            ) {
+                                Text(
+                                    stringResource(range.labelRes),
+                                    color = if (timeRange == range) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                     Text(
-                        text = stringResource(R.string.ui_group_analyse_context_tip),
+                        text = stringResource(R.string.ui_group_analyse_range_tip),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -206,6 +215,52 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             }
                         }
                     }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 自定义主题
+                    Text(
+                        text = stringResource(R.string.ui_group_custom_topic),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = customTopic,
+                        onValueChange = { customTopic = it },
+                        placeholder = { Text(stringResource(R.string.ui_group_custom_topic_hint)) },
+                        minLines = 2,
+                        maxLines = 4,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 模型容量
+                    Text(
+                        text = stringResource(R.string.ui_group_model_capacity),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
+                        ModelCapacity.entries.forEach { capacity ->
+                            TextButton(
+                                onClick = { modelCapacity = capacity },
+                                enabled = !isLoading,
+                            ) {
+                                Text(
+                                    text = capacity.label,
+                                    color = if (modelCapacity == capacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.ui_group_model_capacity_tip),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
 
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
@@ -240,12 +295,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                             modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                         )
-                        Text(
-                            text = result,
-                            style = MaterialTheme.typography.bodySmall,
+                        MarkdownText(
+                            markdown = result,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(bottom = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
                         )
                         Text(
                             text = stringResource(R.string.ui_tip_ai_only),
@@ -278,7 +333,13 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             isLoading = true
                             errorMessage = null
                             scope.launch {
-                                val result = generateReport(talker, messageCount, depth)
+                                val result = generateReport(
+                                    talker,
+                                    timeRange,
+                                    depth,
+                                    customTopic.trim().takeIf { it.isNotEmpty() },
+                                    modelCapacity,
+                                )
                                 isLoading = false
                                 result.fold(
                                     onSuccess = { report = it },
@@ -294,31 +355,65 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             },
             dismissButton = {
                 if (report != null) {
-                    Row {
-                        TextButton(
-                            onClick = {
-                                errorMessage = null
-                                isLoading = true
-                                scope.launch {
-                                    val result = generateReport(talker, messageCount, depth)
-                                    isLoading = false
-                                    result.fold(
-                                        onSuccess = { report = it },
-                                        onFailure = { errorMessage = it.message ?: "未知错误" },
-                                    )
-                                }
-                            },
-                            enabled = !isLoading,
-                        ) {
-                            Text(stringResource(R.string.btn_re_analyse))
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row {
+                            TextButton(
+                                onClick = {
+                                    errorMessage = null
+                                    isLoading = true
+                                    scope.launch {
+                                        val result = generateReport(
+                                            talker,
+                                            timeRange,
+                                            depth,
+                                            customTopic.trim().takeIf { it.isNotEmpty() },
+                                            modelCapacity,
+                                        )
+                                        isLoading = false
+                                        result.fold(
+                                            onSuccess = { report = it },
+                                            onFailure = { errorMessage = it.message ?: "未知错误" },
+                                        )
+                                    }
+                                },
+                                enabled = !isLoading,
+                            ) {
+                                Text(stringResource(R.string.btn_re_analyse))
+                            }
+                            TextButton(
+                                onClick = {
+                                    copyToClipboard(report!!)
+                                    showToast("已复制报告内容")
+                                },
+                            ) {
+                                Text(stringResource(R.string.btn_copy))
+                            }
                         }
-                        TextButton(
-                            onClick = {
-                                copyToClipboard(report!!)
-                                showToast("已复制报告内容")
-                            },
-                        ) {
-                            Text(stringResource(R.string.btn_copy))
+                        Row {
+                            TextButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
+                                        showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
+                                    }
+                                },
+                            ) {
+                                Text(stringResource(R.string.ui_group_save_image))
+                            }
+                            TextButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        val path = GroupReportImage.renderToFile(report!!)
+                                        if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
+                                            showToastSuspend("长图已发送")
+                                        } else {
+                                            showToastSuspend("发送长图失败，请查看日志")
+                                        }
+                                    }
+                                },
+                            ) {
+                                Text(stringResource(R.string.ui_group_send_image))
+                            }
                         }
                     }
                 } else {
@@ -371,22 +466,27 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        providerTypes.forEach { type ->
-                            TextButton(
-                                onClick = { providerTypeName = type.name },
-                            ) {
-                                Text(
-                                    text = type.label(),
-                                    color = if (providerTypeName == type.name) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                )
+                    providerTypes.chunked(2).forEach { rowTypes ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowTypes.forEach { type ->
+                                TextButton(
+                                    onClick = { providerTypeName = type.name },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        text = type.label(),
+                                        color = if (providerTypeName == type.name) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
                     }
@@ -446,42 +546,77 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
     private suspend fun generateReport(
         talker: String,
-        count: Int,
+        range: GroupTimeRange,
         depth: Int = 2,
+        customTopic: String? = null,
+        modelCapacity: ModelCapacity = ModelCapacity.K256,
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
-            val membersMap = WeDatabaseApi.getGroupMembers(talker).associate { m ->
+            val contacts = WeDatabaseApi.getGroupMembers(talker).associate { m ->
                 m.wxId to (m.remarkName.takeUnless { it.isBlank() }?.let { "$it (${m.nickname})" } ?: m.nickname)
             }
-
-            val now = System.currentTimeMillis()
-            val twentyFourHoursAgo = now - 24 * 60 * 60 * 1000L
-            val messagesInRange = WeDatabaseApi.getMessagesInRange(talker, twentyFourHoursAgo, now)
-
-            val messages = if (messagesInRange.size >= count) {
-                messagesInRange.takeLast(count)
-            } else {
-                messagesInRange
+            // 群内昵称优先，其次联系人备注/昵称
+            val nicknameMap = WeDatabaseApi.getGroupNicknameMap(talker)
+            val membersMap = contacts.toMutableMap().apply {
+                nicknameMap.forEach { (wxId, nick) -> this[wxId] = nick }
             }
 
-            if (messages.isEmpty()) {
-                throw IllegalStateException("该群聊最近没有消息，无法生成统计报告")
+            val (startTime, endTime) = groupRangeStartEnd(range)
+            val messagesInRange = WeDatabaseApi.getMessagesInRange(talker, startTime, endTime)
+
+            if (messagesInRange.isEmpty()) {
+                throw IllegalStateException("所选时间段内没有消息，无法生成统计报告")
             }
+
+            // 统计与深度解析使用全部时段消息；自定义主题时 recentLines 内部按模型容量截取
+            val messages = messagesInRange
 
             val statsReport = buildReport(messages, membersMap, talker)
 
             // 配置了 AI 模型时，用 AI 生成智能群聊分析
             if (AiModelConfig.isConfigured()) {
-                aiGenerateReport(messages, membersMap, talker, statsReport, depth)
+                aiGenerateReport(messages, membersMap, talker, statsReport, depth, customTopic, modelCapacity)
             } else {
                 throw IllegalStateException("未配置 AI 模型，请先点击右上角设置配置 API")
             }
         }
     }
 
-    private fun buildAnalysisPrompt(depth: Int, statsReport: String, recentLines: String): Pair<String, String> {
+    private fun buildAnalysisPrompt(
+        depth: Int,
+        statsReport: String,
+        recentLines: String,
+        customTopic: String? = null,
+    ): Pair<String, String> {
         val systemPrompt: String
         val userPrompt: String
+
+        if (customTopic != null) {
+            systemPrompt = """你是微信群聊深度分析引擎，围绕用户指定主题，从群聊历史消息中提炼相关内容。
+围绕主题：【$customTopic】
+输出结构：
+【主题概览】概述群聊中与该主题相关的整体情况。
+【相关内容】按时间或逻辑梳理与该主题相关的讨论、事件、观点、进展。
+【涉及人员】列出参与该主题讨论的成员及其主要观点、立场（不需要过度揣测隐私）。
+【待办/行动项】与该主题相关的通知、任务、邀约、时间安排等行动信息，没有则填无。
+【总结建议】结合讨论内容给出客观总结与参考建议。
+
+硬性约束：
+1. 只围绕用户指定主题分析，忽略无关闲聊内容。
+2. 禁止脑补编造聊天中不存在的信息，信息不足时如实说明。
+3. 使用 Markdown 排版输出，结构清晰、层级分明，便于手机阅读与生成长图。
+4. 适度使用标题、列表、引用、加粗等 Markdown 语法，不滥用复杂嵌套。"""
+            userPrompt = buildString {
+                appendLine("群聊统计数据：")
+                appendLine(statsReport)
+                appendLine()
+                appendLine("聊天记录片段：")
+                appendLine(recentLines)
+                appendLine()
+                appendLine("请围绕主题【$customTopic】进行深度分析。")
+            }
+            return Pair(systemPrompt, userPrompt)
+        }
 
         when (depth) {
             0 -> {
@@ -497,7 +632,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 规则：
 1、文字精简，手机阅读友好，不要大段长篇
 2、没有重要消息如实写，不要凭空编造内容
-3、输出不带复杂markdown符号
+3、可用 Markdown 标题、列表等简单语法排版，层次清晰
 4、语气自然口语化，适合直接发到群内"""
                 userPrompt = buildString {
                     appendLine("群聊统计数据：")
@@ -531,7 +666,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 输出约束：
 1、输出简洁，拒绝大段文字，适配手机弹窗查看。
 2、不编造聊天记录不存在的事件。
-3、不要复杂Markdown格式，排版干净。
+3、可用 Markdown 标题、列表、加粗等简单语法排版，层级清晰。
 4、结果客观，只做热度统计，不做价值评判。"""
                 userPrompt = buildString {
                     appendLine("群聊统计数据：")
@@ -555,9 +690,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
 硬性约束：
 1.禁止脑补编造聊天不存在的信息。
-2.分析结果分条清晰，便于阅读。
-3.当聊天信息不足时如实说明，不强行分析。
-4.输出结果不使用Markdown复杂格式，适配手机弹窗阅读。"""
+2.使用 Markdown 排版输出，结构清晰、层级分明，便于手机阅读与生成长图。
+3.适度使用标题、列表、引用、加粗等 Markdown 语法，不滥用复杂嵌套。
+4.当聊天信息不足时如实说明，不强行分析。"""
                 userPrompt = buildString {
                     appendLine("群聊统计数据：")
                     appendLine(statsReport)
@@ -579,6 +714,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         talker: String,
         statsReport: String,
         depth: Int = 2,
+        customTopic: String? = null,
+        modelCapacity: ModelCapacity = ModelCapacity.K256,
     ): String {
         check(AiModelConfig.baseUrl.isNotBlank()) { "未配置 API 地址" }
         check(AiModelConfig.apiKey.isNotBlank()) { "未配置 API Key" }
@@ -601,14 +738,27 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         )
         val client = ModelProviderManager.clientFor(provider)
 
-        // 最近聊天片段（最多 30 条）
-        val recentLines = messages.takeLast(30).joinToString("\n") { msg ->
-            val sender = extractSenderId(msg, membersMap)
-            val text = extractTextContent(msg, membersMap)
-            "$sender: $text"
+        // 聊天片段：自定义主题时按容量给更多最近消息（估算每 token 约 1.5 字符），否则取最近 30 条
+        val recentLines = if (customTopic != null) {
+            val budgetChars = modelCapacity.tokens * 3 / 2
+            val builder = StringBuilder()
+            var used = 0
+            for (msg in messages.asReversed()) {
+                val line = "${resolveSenderName(extractSenderId(msg, membersMap), membersMap)}: ${extractTextContent(msg, membersMap)}"
+                used += line.length
+                if (used > budgetChars) break
+                builder.insert(0, line + "\n")
+            }
+            builder.toString().trimEnd('\n')
+        } else {
+            messages.takeLast(30).joinToString("\n") { msg ->
+                val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
+                val text = extractTextContent(msg, membersMap)
+                "$sender: $text"
+            }
         }
 
-        val (systemPrompt, userPrompt) = buildAnalysisPrompt(depth, statsReport, recentLines)
+        val (systemPrompt, userPrompt) = buildAnalysisPrompt(depth, statsReport, recentLines, customTopic)
 
         val messages2 = listOf(
             LlmMessage(role = LlmRole.SYSTEM, content = systemPrompt),
@@ -775,9 +925,16 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
     private fun extractSenderId(msg: WeMessage, membersMap: Map<String, String>): String {
         if (msg.isSend != 0) return "我"
+        // 发送者 wxid 必须是群内真实成员，避免特殊消息格式导致误切分
         val match = groupSenderRegex.find(msg.content)
-        return match?.groupValues?.get(1) ?: "<未知>"
+        val rawSender = match?.groupValues?.get(1) ?: return "<未知>"
+        if (membersMap.containsKey(rawSender)) return rawSender
+        // 微信部分消息中发送者可能带后缀（如 xxxx:xxx）或被截断，尝试模糊匹配已知成员
+        return membersMap.keys.firstOrNull { rawSender.startsWith(it) } ?: rawSender
     }
+
+    private fun resolveSenderName(senderId: String, membersMap: Map<String, String>): String =
+        membersMap[senderId] ?: senderId
 
     private fun extractTextContent(msg: WeMessage, membersMap: Map<String, String>): String {
         if (msg.isSend != 0) return msg.content
@@ -806,6 +963,56 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     private fun <K> MutableMap<K, Int>.mergeCount(key: K, value: Int, op: (Int, Int) -> Int) {
         this[key] = op(this.getOrDefault(key, 0), value)
     }
+}
+
+/** 群聊分析时间范围 */
+private enum class GroupTimeRange(val labelRes: Int) {
+    TODAY(R.string.ui_group_range_today),
+    YESTERDAY(R.string.ui_group_range_yesterday),
+    THIS_WEEK(R.string.ui_group_range_this_week),
+    THIS_MONTH(R.string.ui_group_range_this_month),
+    THIS_YEAR(R.string.ui_group_range_this_year),
+}
+
+/** AI 上下文容量档位（token） */
+private enum class ModelCapacity(val tokens: Long, val label: String) {
+    K128(128 * 1024L, "128K"),
+    K256(256 * 1024L, "256K"),
+    K512(512 * 1024L, "512K"),
+    M1(1024 * 1024L, "1M"),
+}
+
+/** 计算时间段 [start, end]（毫秒时间戳） */
+private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
+    val now = System.currentTimeMillis()
+    val cal = Calendar.getInstance().apply { timeInMillis = now }
+    val start: Long = when (range) {
+        GroupTimeRange.TODAY -> {
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+        GroupTimeRange.YESTERDAY -> {
+            cal.add(Calendar.DAY_OF_YEAR, -1)
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+        GroupTimeRange.THIS_WEEK -> {
+            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+        GroupTimeRange.THIS_MONTH -> {
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+        GroupTimeRange.THIS_YEAR -> {
+            cal.set(Calendar.DAY_OF_YEAR, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+    }
+    return start to now
 }
 
 private class GroupSummaryIcon : VectorPathDrawable(

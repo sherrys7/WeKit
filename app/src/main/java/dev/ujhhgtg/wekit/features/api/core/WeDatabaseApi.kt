@@ -717,6 +717,38 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
     }
 
     /**
+     * 获取群成员的群内昵称映射（wxId -> 群昵称）
+     * 数据来自 chatroom.roomdata protobuf，没有设置群昵称的成员不包含在结果中
+     * @param groupId 群聊 wxId（xxx@chatroom）
+     * @return wxId 到群昵称的映射，无 roomdata 或解析失败时返回空 map
+     */
+    fun getGroupNicknameMap(groupId: String): Map<String, String> {
+        if (!groupId.isGroupChatWxId) return emptyMap()
+        return try {
+            val cursor = db.rawQuery(
+                "SELECT roomdata FROM chatroom WHERE chatroomname = ?",
+                arrayOf(groupId)
+            )
+            cursor.use { cursor ->
+                if (cursor != null && cursor.moveToFirst()) {
+                    val blob = cursor.getBlob(0) ?: return emptyMap()
+                    ProtoBuf.decodeFromByteArray<ChatRoomDataProto>(blob)
+                        .members
+                        .mapNotNull { member ->
+                            member.displayName.takeIf { it.isNotBlank() }?.let { member.wxId to it }
+                        }
+                        .toMap()
+                } else {
+                    emptyMap()
+                }
+            }
+        } catch (e: Exception) {
+            WeLogger.e(TAG, "failed to get group nickname map; groupId=$groupId", e)
+            emptyMap()
+        }
+    }
+
+    /**
      * 获取指定会话在 [startTime, endTime] 时间窗口内的【消息】（升序）
      * @param convId 会话 ID（单聊为对方 wxid，群聊为 xxx@chatroom）
      * @param startTime 起始时间（毫秒时间戳，含）
