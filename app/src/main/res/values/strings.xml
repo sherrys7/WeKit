@@ -1900,11 +1900,7 @@
     </plurals>
     <string name="chat_forward_menu">Forward</string>
     <string name="chat_tts_menu">Text to speech</string>
-    <string name="ui_group_analyse_title">Group Chat AI Analysis</string>
-    <string name="ui_group_analyse_deep">Analysis Depth</string>
-    <string name="ui_group_fast">Quick Brief</string>
-    <string name="ui_group_normal">Standard</string>
-    <string name="ui_group_deep">Deep Analysis</string>
+    <string name="ui_group_analyse_title">Analysis Report</string>
     <string name="ui_group_wuhan">Wuhan Dialect</string>
     <string name="ui_group_analyse_range">Time Range</string>
     <string name="ui_group_analyse_range_tip">Analyze messages within the selected time range; message count limit is automatic</string>
@@ -1922,13 +1918,16 @@
     <string name="ui_group_result">Analysis Result</string>
     <string name="ui_tip_ai_only">AI analysis is for reference only, content may have probabilistic deviations</string>
     <string name="ui_group_ai_settings_title">AI Settings</string>
-    <string name="ui_group_ai_settings_provider">Provider</string>
-    <string name="ui_group_ai_settings_base_url">Base URL</string>
-    <string name="ui_group_ai_settings_api_key">API Key</string>
-    <string name="ui_group_ai_settings_model_id">Model ID</string>
-    <string name="btn_re_analyse">Re-analyze</string>
-    <string name="btn_copy">Copy Result</string>
-    <string name="btn_reply">Generate Topic Summary</string>
+    <string name="ui_group_ai_settings_base_url">API Base URL</string>
+    <string name="ui_group_ai_settings_base_url_hint">e.g. https://api.deepseek.com</string>
+    <string name="ui_group_ai_settings_path">API Path</string>
+    <string name="ui_group_ai_settings_path_hint">e.g. /v1 (endpoint prefix)</string>
+    <string name="ui_group_ai_settings_api_key">API Key (Bearer Token)</string>
+    <string name="ui_group_ai_settings_api_key_hint">Bearer token for authentication</string>
+    <string name="ui_group_ai_settings_model_id">Model Name</string>
+    <string name="ui_group_generate_start">Start Generation</string>
+    <string name="ui_group_copy_text">Copy Text</string>
+    <string name="ui_group_send_text">Send Text</string>
     <string name="chat_forward_select_recipients">Select recipients</string>
     <string name="chat_forward_select_at_least_one">Select at least one contact</string>
     <plurals name="chat_forwarding_messages">

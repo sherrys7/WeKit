@@ -295,6 +295,9 @@ Prefer these over raw Compose controls:
 - 汽水音乐搜索修复：`n=` 空值参数返回歌曲列表（`data` 为 JSONArray），`n=1` 返回单首详情含 `download_url` 和 `lyric`
 - 三卡默认关闭：`calendarCardEnabled` / `imageCardEnabled` / `musicCardEnabled` 默认值 `true` → `false`
 - 汽水音乐搜索兼容性修复：`httpGet` 添加 `User-Agent` 和 `Accept` 头部；`search`/`getTrackDetail` 的 `catch` 块增加 `toast` 错误提示
+- 群聊智能分析界面重构：长按菜单进入全屏界面（左上「分析报告」+ 右上 API 设置/关闭）；API 设置精简为四参数（API 地址/API 路径/API Key(Bearer Token)/模型名称，去服务商选择，保存时强制 OpenAI Chat Completions 兼容）；主区为时段/容量/自定义主题输入+开始生成；报告流式边生成边展现（`onDelta` 回调）；底部 2x2 操作区（复制文字/发送文字/保存图像/发送图像）
+- `showComposeDialog` 增加 `fullScreen` 参数（窗口 MATCH_PARENT + 内容 fillMaxSize）
+- `AiModelConfig` 新增 `apiPath` 偏好 + `resolvedBaseUrl()`（baseUrl + apiPath 拼接）
 
 ### In Progress
 - (none)
@@ -312,7 +315,8 @@ Prefer these over raw Compose controls:
 - 三卡默认关闭，减少初始干扰
 
 ## Next Steps
-1. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位搜索失败原因
+1. 群聊智能分析重构已提交待 CI 构建验证（本地不构建，CI 负责编译）
+2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
 
 ## Critical Context
 - 远端 `origin/dev-sherry` 最新 commit：`e5a347b`
@@ -339,4 +343,7 @@ Prefer these over raw Compose controls:
 - `.../home_page_cards/HpcMediaNotification.kt`: 系统通知栏 + MediaSession 控制
 - `.../home_page_cards/HpcFloatLyric.kt`: 桌面悬浮歌词
 - `.../home_page_cards/HpcImageCard.kt`: 图片卡，支持自定义背景图
+- `.../chat/GroupChatSummary.kt`: 群聊智能分析，全屏界面（`fullScreen` 弹窗）+ 流式报告（`onDelta`）+ 底部 2x2 操作区；`generateReport`/`aiGenerateReport` 走 `AiModelConfig` 四参数配置
+- `.../chat/AiModelConfig.kt`: 四参数配置（`baseUrl`/`apiPath`/`apiKey`/`modelId`）持久化到 MMKV，`resolvedBaseUrl()` 拼接；provider 固定 OpenAI Chat Completions
+- `.../ui/utils/ComposeUtils.kt`: `showComposeDialog` 新增 `fullScreen` 参数（窗口 MATCH_PARENT）
 - `.github/workflows/ci.yml`: CI 配置，含 `upload-telegram` job

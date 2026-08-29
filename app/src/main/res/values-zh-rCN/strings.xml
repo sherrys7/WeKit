@@ -1850,11 +1850,7 @@
     </plurals>
     <string name="chat_forward_menu">转发</string>
     <string name="chat_tts_menu">转语音</string>
-    <string name="ui_group_analyse_title">群聊智能分析</string>
-    <string name="ui_group_analyse_deep">分析深度</string>
-    <string name="ui_group_fast">快速简要</string>
-    <string name="ui_group_normal">标准分析</string>
-    <string name="ui_group_deep">深度解析</string>
+    <string name="ui_group_analyse_title">分析报告</string>
     <string name="ui_group_wuhan">武汉口语</string>
     <string name="ui_group_analyse_range">分析时段</string>
     <string name="ui_group_analyse_range_tip">分析所选时段内的消息，条数上限自动</string>
@@ -1872,13 +1868,16 @@
     <string name="ui_group_result">分析结果</string>
     <string name="ui_tip_ai_only">AI分析仅供参考，内容存在概率偏差</string>
     <string name="ui_group_ai_settings_title">AI 配置</string>
-    <string name="ui_group_ai_settings_provider">服务商</string>
-    <string name="ui_group_ai_settings_base_url">接口地址</string>
-    <string name="ui_group_ai_settings_api_key">API Key</string>
-    <string name="ui_group_ai_settings_model_id">模型 ID</string>
-    <string name="btn_re_analyse">重新分析</string>
-    <string name="btn_copy">复制结果</string>
-    <string name="btn_reply">生成话题小结</string>
+    <string name="ui_group_ai_settings_base_url">API 地址</string>
+    <string name="ui_group_ai_settings_base_url_hint">例如 https://api.deepseek.com</string>
+    <string name="ui_group_ai_settings_path">API 路径</string>
+    <string name="ui_group_ai_settings_path_hint">例如 /v1（端点前缀）</string>
+    <string name="ui_group_ai_settings_api_key">API Key（Bearer Token）</string>
+    <string name="ui_group_ai_settings_api_key_hint">用于认证的 Bearer Token</string>
+    <string name="ui_group_ai_settings_model_id">模型名称</string>
+    <string name="ui_group_generate_start">开始生成</string>
+    <string name="ui_group_copy_text">复制文字</string>
+    <string name="ui_group_send_text">发送文字</string>
     <string name="chat_forward_select_recipients">选择转发对象</string>
     <string name="chat_forward_select_at_least_one">请选择至少一个联系人</string>
     <plurals name="chat_forwarding_messages">

@@ -13,8 +13,16 @@ internal object AiModelConfig {
         ModelProviderType.OPENAI_CHAT_COMPLETION.name,
     )
     var baseUrl by WePrefs.prefOption("ai_reply_base_url", "")
+    var apiPath by WePrefs.prefOption("ai_reply_api_path", "")
     var apiKey by WePrefs.prefOption("ai_reply_api_key", "")
     var modelId by WePrefs.prefOption("ai_reply_model_id", "")
+
+    /** 完整请求前缀 = baseUrl + apiPath，provider 客户端再拼接协议端点（如 /chat/completions） */
+    fun resolvedBaseUrl(): String {
+        val base = baseUrl.trim().trimEnd('/')
+        val path = apiPath.trim().trimStart('/')
+        return if (base.isNotEmpty() && path.isNotEmpty()) "$base/$path" else base
+    }
 
     fun providerType(): ModelProviderType =
         runCatching { ModelProviderType.valueOf(providerTypeName) }

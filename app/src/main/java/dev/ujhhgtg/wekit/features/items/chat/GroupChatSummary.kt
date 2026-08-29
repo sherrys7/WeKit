@@ -2,16 +2,22 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 
 import android.view.View
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,6 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
+import com.composables.icons.materialsymbols.outlined.Close
+import com.composables.icons.materialsymbols.outlined.Content_copy
+import com.composables.icons.materialsymbols.outlined.Download
+import com.composables.icons.materialsymbols.outlined.Photo_library
+import com.composables.icons.materialsymbols.outlined.Send
 import com.composables.icons.materialsymbols.outlined.Settings
 import dev.ujhhgtg.wekit.agent.data.entity.ModelEntity
 import dev.ujhhgtg.wekit.agent.data.entity.ModelProviderEntity
@@ -48,7 +59,6 @@ import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
 import dev.ujhhgtg.wekit.features.core.SwitchFeature
 import dev.ujhhgtg.wekit.ui.agent.MarkdownText
-import dev.ujhhgtg.wekit.ui.agent.settings.label
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
@@ -103,7 +113,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         message.talker.isGroupChatWxId
 
     private fun showGroupSummaryDialog(view: View, talker: String) {
-        showComposeDialog(view.context) {
+        showComposeDialog(view.context, fullScreen = true) {
             GroupSummaryDialog(
                 talker = talker,
                 onDismiss = onDismiss,
@@ -120,309 +130,285 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var isLoading by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
         var timeRange by remember { mutableStateOf(GroupTimeRange.TODAY) }
-        var depth by remember { mutableStateOf(2) } // 0=快速 1=标准 2=深度
         var customTopic by remember { mutableStateOf("") }
         var modelCapacity by remember { mutableStateOf(ModelCapacity.K256) }
         var showAiSettings by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
 
-        val groupName = remember(talker) {
-            runCatching { WeDatabaseApi.getDisplayName(talker) }.getOrDefault(talker)
+        fun startGenerate() {
+            isLoading = true
+            errorMessage = null
+            report = null
+            scope.launch {
+                val result = generateReport(
+                    talker,
+                    timeRange,
+                    customTopic = customTopic.trim().takeIf { it.isNotEmpty() },
+                    modelCapacity = modelCapacity,
+                    onDelta = { delta ->
+                        withContext(Dispatchers.Main) { report = report.orEmpty() + delta }
+                    },
+                )
+                isLoading = false
+                result.fold(
+                    onSuccess = { report = it },
+                    onFailure = { errorMessage = it.message ?: "未知错误" },
+                )
+            }
         }
 
-        AlertDialogContent(
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.ui_group_analyse_title),
-                        modifier = Modifier.weight(1f),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 16.dp),
+        ) {
+            // 顶部栏：左上角标题，右上角 API 设置 + 关闭
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.ui_group_analyse_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { showAiSettings = true }) {
+                    Icon(
+                        MaterialSymbols.Outlined.Settings,
+                        contentDescription = null,
                     )
-                    IconButton(onClick = { showAiSettings = true }) {
-                        Icon(
-                            MaterialSymbols.Outlined.Settings,
-                            contentDescription = null,
-                        )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        MaterialSymbols.Outlined.Close,
+                        contentDescription = null,
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                // 分析时段
+                Text(
+                    text = stringResource(R.string.ui_group_analyse_range),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    GroupTimeRange.entries.forEach { range ->
+                        TextButton(
+                            onClick = { timeRange = range },
+                            enabled = !isLoading,
+                        ) {
+                            Text(
+                                stringResource(range.labelRes),
+                                color = if (timeRange == range) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
                     }
                 }
-            },
-            text = {
+                Text(
+                    text = stringResource(R.string.ui_group_analyse_range_tip),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // 模型容量
+                Text(
+                    text = stringResource(R.string.ui_group_model_capacity),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    ModelCapacity.entries.forEach { capacity ->
+                        TextButton(
+                            onClick = { modelCapacity = capacity },
+                            enabled = !isLoading,
+                        ) {
+                            Text(
+                                text = capacity.label,
+                                color = if (modelCapacity == capacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.ui_group_model_capacity_tip),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // 自定义主题
+                Text(
+                    text = stringResource(R.string.ui_group_custom_topic),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = customTopic,
+                    onValueChange = { customTopic = it },
+                    placeholder = { Text(stringResource(R.string.ui_group_custom_topic_hint)) },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // 开始生成
+                Button(
+                    onClick = ::startGenerate,
+                    enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.ui_group_generate_start))
+                }
+
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+
+                if (isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 12.dp),
+                            strokeWidth = 3.dp,
+                        )
+                        Text("正在生成智能分析...")
+                    }
+                }
+
+                errorMessage?.let { err ->
+                    Text(
+                        text = err,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                    )
+                }
+
+                report?.let { result ->
+                    Text(
+                        text = stringResource(R.string.ui_group_result),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                    )
+                    MarkdownText(
+                        markdown = result,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = stringResource(R.string.ui_tip_ai_only),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                }
+            }
+
+            // 底部操作区：复制文字 / 发送文字 / 保存图像 / 发送图像
+            if (!isLoading && report != null) {
+                HorizontalDivider()
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
+                        .padding(vertical = 8.dp),
                 ) {
-                    Text(
-                        text = groupName,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // 分析时段
-                    Text(
-                        text = stringResource(R.string.ui_group_analyse_range),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
-                        GroupTimeRange.entries.forEach { range ->
-                            TextButton(
-                                onClick = { timeRange = range },
-                                enabled = !isLoading,
-                            ) {
-                                Text(
-                                    stringResource(range.labelRes),
-                                    color = if (timeRange == range) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-                    }
-                    Text(
-                        text = stringResource(R.string.ui_group_analyse_range_tip),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // 分析深度
-                    Text(
-                        text = stringResource(R.string.ui_group_analyse_deep),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
-                        val depthOptions = listOf(
-                            R.string.ui_group_fast,
-                            R.string.ui_group_normal,
-                            R.string.ui_group_deep,
-                        )
-                        depthOptions.forEachIndexed { index, res ->
-                            TextButton(
-                                onClick = { depth = index },
-                                enabled = !isLoading,
-                            ) {
-                                Text(
-                                    stringResource(res),
-                                    color = if (depth == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // 自定义主题
-                    Text(
-                        text = stringResource(R.string.ui_group_custom_topic),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    OutlinedTextField(
-                        value = customTopic,
-                        onValueChange = { customTopic = it },
-                        placeholder = { Text(stringResource(R.string.ui_group_custom_topic_hint)) },
-                        minLines = 2,
-                        maxLines = 4,
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // 模型容量
-                    Text(
-                        text = stringResource(R.string.ui_group_model_capacity),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
-                        ModelCapacity.entries.forEach { capacity ->
-                            TextButton(
-                                onClick = { modelCapacity = capacity },
-                                enabled = !isLoading,
-                            ) {
-                                Text(
-                                    text = capacity.label,
-                                    color = if (modelCapacity == capacity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
-                        }
-                    }
-                    Text(
-                        text = stringResource(R.string.ui_group_model_capacity_tip),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
-                    if (isLoading) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                copyToClipboard(report!!)
+                                showToast("已复制报告内容")
+                            },
+                            modifier = Modifier.weight(1f),
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(end = 12.dp),
-                                strokeWidth = 3.dp,
-                            )
-                            Text("正在生成智能分析...")
+                            Icon(MaterialSymbols.Outlined.Content_copy, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.ui_group_copy_text))
                         }
-                    }
-
-                    errorMessage?.let { err ->
-                        Text(
-                            text = err,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                        )
-                    }
-
-                    report?.let { result ->
-                        Text(
-                            text = stringResource(R.string.ui_group_result),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-                        )
-                        MarkdownText(
-                            markdown = result,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 4.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Text(
-                            text = stringResource(R.string.ui_tip_ai_only),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                if (report != null) {
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                val reportText = report
-                                if (reportText != null && WeMessageApi.sendText(talker, reportText)) {
-                                    showToast("已发送报告")
-                                    onDismiss()
-                                } else {
-                                    showToast("发送失败，请查看日志")
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    if (WeMessageApi.sendText(talker, report!!)) {
+                                        showToast("已发送报告")
+                                        onDismiss()
+                                    } else {
+                                        showToast("发送失败，请查看日志")
+                                    }
                                 }
-                            }
-                        },
-                    ) {
-                        Text(stringResource(R.string.btn_reply))
-                    }
-                } else {
-                    Button(
-                        onClick = {
-                            isLoading = true
-                            errorMessage = null
-                            scope.launch {
-                                val result = generateReport(
-                                    talker,
-                                    timeRange,
-                                    depth,
-                                    customTopic.trim().takeIf { it.isNotEmpty() },
-                                    modelCapacity,
-                                )
-                                isLoading = false
-                                result.fold(
-                                    onSuccess = { report = it },
-                                    onFailure = { errorMessage = it.message ?: "未知错误" },
-                                )
-                            }
-                        },
-                        enabled = !isLoading,
-                    ) {
-                        Text("生成统计报告")
-                    }
-                }
-            },
-            dismissButton = {
-                if (report != null) {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Row {
-                            TextButton(
-                                onClick = {
-                                    errorMessage = null
-                                    isLoading = true
-                                    scope.launch {
-                                        val result = generateReport(
-                                            talker,
-                                            timeRange,
-                                            depth,
-                                            customTopic.trim().takeIf { it.isNotEmpty() },
-                                            modelCapacity,
-                                        )
-                                        isLoading = false
-                                        result.fold(
-                                            onSuccess = { report = it },
-                                            onFailure = { errorMessage = it.message ?: "未知错误" },
-                                        )
-                                    }
-                                },
-                                enabled = !isLoading,
-                            ) {
-                                Text(stringResource(R.string.btn_re_analyse))
-                            }
-                            TextButton(
-                                onClick = {
-                                    copyToClipboard(report!!)
-                                    showToast("已复制报告内容")
-                                },
-                            ) {
-                                Text(stringResource(R.string.btn_copy))
-                            }
-                        }
-                        Row {
-                            TextButton(
-                                onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
-                                        showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
-                                    }
-                                },
-                            ) {
-                                Text(stringResource(R.string.ui_group_save_image))
-                            }
-                            TextButton(
-                                onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        val path = GroupReportImage.renderToFile(report!!)
-                                        if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
-                                            showToastSuspend("长图已发送")
-                                        } else {
-                                            showToastSuspend("发送长图失败，请查看日志")
-                                        }
-                                    }
-                                },
-                            ) {
-                                Text(stringResource(R.string.ui_group_send_image))
-                            }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(MaterialSymbols.Outlined.Send, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.ui_group_send_text))
                         }
                     }
-                } else {
-                    TextButton(onClick = onDismiss) {
-                        Text("关闭")
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
+                                    showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(MaterialSymbols.Outlined.Download, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.ui_group_save_image))
+                        }
+                        Button(
+                            onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val path = GroupReportImage.renderToFile(report!!)
+                                    if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
+                                        showToastSuspend("长图已发送")
+                                    } else {
+                                        showToastSuspend("发送长图失败，请查看日志")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(MaterialSymbols.Outlined.Photo_library, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.ui_group_send_image))
+                        }
                     }
                 }
-            },
-        )
+            }
+        }
 
         if (showAiSettings) {
             AiSettingsDialog(onDismiss = { showAiSettings = false })
@@ -431,8 +417,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
     @Composable
     private fun AiSettingsDialog(onDismiss: () -> Unit) {
-        var providerTypeName by remember { mutableStateOf(AiModelConfig.providerTypeName) }
         var baseUrl by remember { mutableStateOf(AiModelConfig.baseUrl) }
+        var apiPath by remember { mutableStateOf(AiModelConfig.apiPath) }
         var apiKey by remember { mutableStateOf(AiModelConfig.apiKey) }
         var modelId by remember { mutableStateOf(AiModelConfig.modelId) }
 
@@ -454,49 +440,22 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    val providerTypes = listOf(
-                        ModelProviderType.OPENAI_CHAT_COMPLETION,
-                        ModelProviderType.ANTHROPIC_MESSAGES,
-                        ModelProviderType.GEMINI_GENERATE_CONTENT,
-                        ModelProviderType.LOCAL_LLAMA,
-                    )
-                    Text(
-                        text = stringResource(R.string.ui_group_ai_settings_provider),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    providerTypes.chunked(2).forEach { rowTypes ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            rowTypes.forEach { type ->
-                                TextButton(
-                                    onClick = { providerTypeName = type.name },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text(
-                                        text = type.label(),
-                                        color = if (providerTypeName == type.name) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurface
-                                        },
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
                     OutlinedTextField(
                         value = baseUrl,
                         onValueChange = { baseUrl = it },
                         label = { Text(stringResource(R.string.ui_group_ai_settings_base_url)) },
+                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_base_url_hint)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = apiPath,
+                        onValueChange = { apiPath = it },
+                        label = { Text(stringResource(R.string.ui_group_ai_settings_path)) },
+                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_path_hint)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -507,6 +466,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         value = apiKey,
                         onValueChange = { apiKey = it },
                         label = { Text(stringResource(R.string.ui_group_ai_settings_api_key)) },
+                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_api_key_hint)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -525,8 +485,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             confirmButton = {
                 Button(
                     onClick = {
-                        AiModelConfig.providerTypeName = providerTypeName
+                        AiModelConfig.providerTypeName = ModelProviderType.OPENAI_CHAT_COMPLETION.name
                         AiModelConfig.baseUrl = baseUrl.trim()
+                        AiModelConfig.apiPath = apiPath.trim()
                         AiModelConfig.apiKey = apiKey.trim()
                         AiModelConfig.modelId = modelId.trim()
                         showToast("已保存 AI 配置")
@@ -547,9 +508,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     private suspend fun generateReport(
         talker: String,
         range: GroupTimeRange,
-        depth: Int = 2,
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
+        onDelta: suspend (String) -> Unit = {},
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val contacts = WeDatabaseApi.getGroupMembers(talker).associate { m ->
@@ -575,7 +536,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
             // 配置了 AI 模型时，用 AI 生成智能群聊分析
             if (AiModelConfig.isConfigured()) {
-                aiGenerateReport(messages, membersMap, talker, statsReport, depth, customTopic, modelCapacity)
+                aiGenerateReport(messages, membersMap, talker, statsReport, 2, customTopic, modelCapacity, onDelta)
             } else {
                 throw IllegalStateException("未配置 AI 模型，请先点击右上角设置配置 API")
             }
@@ -716,8 +677,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         depth: Int = 2,
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
+        onDelta: suspend (String) -> Unit = {},
     ): String {
-        check(AiModelConfig.baseUrl.isNotBlank()) { "未配置 API 地址" }
+        check(AiModelConfig.resolvedBaseUrl().isNotBlank()) { "未配置 API 地址" }
         check(AiModelConfig.apiKey.isNotBlank()) { "未配置 API Key" }
         check(AiModelConfig.modelId.isNotBlank()) { "未配置模型 ID" }
 
@@ -725,7 +687,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             id = "ai_reply",
             type = AiModelConfig.providerType(),
             name = "AI回复",
-            baseUrl = AiModelConfig.baseUrl.trim(),
+            baseUrl = AiModelConfig.resolvedBaseUrl(),
             apiKey = AiModelConfig.apiKey.trim(),
         )
         val model = ModelEntity(
@@ -777,6 +739,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             when (event) {
                 is LlmStreamEvent.TextDelta -> {
                     reportContent += event.text
+                    onDelta(event.text)
                 }
                 is LlmStreamEvent.Completed -> {
                     if (reportContent.isBlank()) {

@@ -5,8 +5,10 @@ import android.content.Context
 import android.graphics.Color
 import android.view.View
 import android.view.Window
+import android.view.WindowManager
 import androidx.activity.ComponentDialog
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,6 +33,7 @@ import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
 fun showComposeDialog(
     context: Context,
     directlyDismissable: Boolean = true,
+    fullScreen: Boolean = false,
     content: @Composable ShowComposeDialogScope.() -> Unit
 ) {
     val context = CommonContextWrapper(context)
@@ -57,7 +60,11 @@ fun showComposeDialog(
                         val themedContent: @Composable () -> Unit = {
                             ModuleTheme {
                                 Box(
-                                    modifier = Modifier.wrapContentSize(),
+                                    modifier = if (fullScreen) {
+                                        Modifier.fillMaxSize()
+                                    } else {
+                                        Modifier.wrapContentSize()
+                                    },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     scope.content()
@@ -75,6 +82,12 @@ fun showComposeDialog(
         )
 
         window!!.setBackgroundDrawable(Color.TRANSPARENT.toDrawable())
+        if (fullScreen) {
+            window!!.setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+            )
+        }
         show()
     }
 }
