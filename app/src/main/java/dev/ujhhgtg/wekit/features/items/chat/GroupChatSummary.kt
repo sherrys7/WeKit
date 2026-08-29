@@ -805,8 +805,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         val totalCount = messages.size
 
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val startTime = dateFormat.format(Date(messages.first().createTime * 1000L))
-        val endTime = dateFormat.format(Date(messages.last().createTime * 1000L))
+        val startTime = dateFormat.format(Date(messages.first().createTime))
+        val endTime = dateFormat.format(Date(messages.last().createTime))
 
         val typeCounts = mutableMapOf<String, Int>()
         val senderCounts = mutableMapOf<String, MutableList<WeMessage>>()
@@ -826,7 +826,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             val senderId = extractSenderId(msg, membersMap)
             senderCounts.getOrPut(senderId) { mutableListOf() }.add(msg)
 
-            val hour = (msg.createTime % 86400) / 3600
+            val hour = (msg.createTime / 1000 % 86400) / 3600
             val period = when {
                 hour < 6 -> "凌晨"
                 hour < 12 -> "上午"
@@ -982,7 +982,7 @@ private enum class ModelCapacity(val tokens: Long, val label: String) {
     M1(1024 * 1024L, "1M"),
 }
 
-/** 计算时间段 [start, end]（秒时间戳，与微信 message.createTime 单位一致） */
+/** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
 private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
     val now = System.currentTimeMillis()
     val startCal = Calendar.getInstance().apply { timeInMillis = now }
@@ -1015,7 +1015,7 @@ private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
             clearTime(startCal)
         }
     }
-    return startCal.timeInMillis / 1000 to endCal.timeInMillis / 1000
+    return startCal.timeInMillis to endCal.timeInMillis
 }
 
 private class GroupSummaryIcon : VectorPathDrawable(
