@@ -326,7 +326,7 @@ Prefer these over raw Compose controls:
 2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
 
 ## Critical Context
-- 远端 `origin/dev-sherry` 最新 commit：`385d856c`
+- 远端 `origin/dev-sherry` 最新 commit：`2f87274e`
 - 网易云 API：`FFAPI = "https://ffapi.cn/int/v1/dg_netease"`
   - 搜索 `GET ?msg={keyword}&limit=20&format=json` → `data[{n, title, singer, pic}]`
   - 选歌 `GET ?msg={keyword}&n={index}&format=json` → `data{id, name, singer, pic, url, lrc}`
