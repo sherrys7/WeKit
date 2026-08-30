@@ -35,7 +35,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,11 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogWindowProvider
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
 import com.composables.icons.materialsymbols.outlined.Close
@@ -80,7 +75,6 @@ import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
 import dev.ujhhgtg.wekit.ui.utils.VectorPathDrawable
-import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
 import dev.ujhhgtg.wekit.utils.android.showToast
@@ -129,16 +123,11 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         message.talker.isGroupChatWxId
 
     private fun showGroupSummaryDialog(view: View, talker: String) {
-        showComposeDialog(view.context, fullScreen = true) {
-            GroupSummaryDialog(
-                talker = talker,
-                onDismiss = onDismiss,
-            )
-        }
+        GroupSummaryActivity.launch(view.context, talker)
     }
 
     @Composable
-    private fun GroupSummaryDialog(
+    internal fun GroupSummaryDialog(
         talker: String,
         onDismiss: () -> Unit,
     ) {
@@ -154,14 +143,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var generatedRangeRes by remember { mutableStateOf<Int?>(null) }
         var generatedAt by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
-
-        // 状态栏/导航栏着色为页面背景色：背景视觉上延伸到系统栏，内容从状态栏下方开始
-        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
-        val barColor = MaterialTheme.colorScheme.surface.toArgb()
-        SideEffect {
-            dialogWindow?.statusBarColor = barColor
-            dialogWindow?.navigationBarColor = barColor
-        }
 
         fun startGenerate() {
             isLoading = true

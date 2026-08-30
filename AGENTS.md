@@ -311,6 +311,7 @@ Prefer these over raw Compose controls:
 - 全屏沉浸双保险：`showComposeDialog` fullScreen 分支增加 `decorView.systemUiVisibility`（LAYOUT_STABLE/FULLSCREEN/HIDE_NAVIGATION），配合 `setDecorFitsSystemWindows(false)` 确保内容背景延伸到顶部导航栏
 - 状态栏改为不沉浸（最终方案）：`showComposeDialog` fullScreen 分支移除 edge-to-edge（decorFits 恢复默认 true，内容从状态栏下方开始），状态栏/导航栏着色为页面背景色——`GroupSummaryDialog` 内用 `SideEffect` 将 `MaterialTheme.colorScheme.surface.toArgb()` 回写到 `DialogWindowProvider.window`，视觉上背景延伸到系统栏而内容不延伸；fullScreen 分支首帧先按深浅色给近似底色（dark=0xFF1C1B1F / light=WHITE）避免闪出宿主界面；仅群聊分析使用 fullScreen=true，其他弹窗不受影响
 - 群聊分析默认主题重写：`buildAnalysisPrompt` 深度分析分支改为「联想标题 + 内容概览 + 灵活模块」（主要内容/重点话题/整体氛围/有趣亮点/总结），模块标题与数量（4~6）由模型按聊天内容灵活组织；去掉旧 5 模块（话题总结/情绪评估/关键信息/人物倾向/回复方案）与【】固定格式
+- 群聊分析全屏切换 ComponentActivity：新增 `GroupSummaryActivity`（`ComponentActivity` + `@Keep`，经 ActivityProxy 借壳在宿主进程运行，数据库 API 可用）；`showGroupSummaryDialog` 改为 `startActivity`（`FLAG_ACTIVITY_NEW_TASK` + talker extra）；`GroupSummaryDialog` 改 internal、复用为先例 `ReadReceiptsSettingsActivity` 的 `WeKitLocaleProvider(InjectedHost)` + `ModuleTheme` 模式；onCreate 配置 window（DRAWS_SYSTEM_BAR_BACKGROUNDS、清 TRANSLUCENT、`SOFT_INPUT_ADJUST_RESIZE`、`isStatusBarContrastEnforced=false`、图标明暗随深浅色）；`SideEffect` 将 `surface.toArgb()` 回写 statusBar/navigationBarColor（背景视觉延伸、内容不延伸）；移除 GroupSummaryDialog 内 DialogWindowProvider 回写死代码；manifest 注册（非 exported，`Theme.Material3.DynamicColors.DayNight.NoActionBar`）；`showComposeDialog` 的 fullScreen 分支保留但已无调用方
 
 ### In Progress
 - (none)
@@ -328,7 +329,7 @@ Prefer these over raw Compose controls:
 - 三卡默认关闭，减少初始干扰
 
 ## Next Steps
-1. 404 修复增强 + 「API 配置」文案 + apiPath 完整端点支持 + 默认主题重写 + 状态栏不沉浸方案已提交，待 CI 构建验证（本地不构建，CI 负责编译）
+1. 群聊分析 ComponentActivity 全屏切换已提交，待 CI 构建验证（本地不构建，CI 负责编译）；真机验证长按菜单 → 全屏界面、状态栏着色、键盘弹起（ADJUST_RESIZE）
 2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
 
 ## Critical Context
