@@ -19,9 +19,14 @@ internal object AiModelConfig {
 
     /** 完整请求前缀 = baseUrl + apiPath，provider 客户端再拼接协议端点（如 /chat/completions） */
     fun resolvedBaseUrl(): String {
-        val base = baseUrl.trim().trimEnd('/')
+        var base = baseUrl.trim().trimEnd('/')
         if (base.isEmpty()) return base
-        val path = apiPath.trim().trim('/')
+        // 用户可能在 baseUrl 里误填了完整端点（如 https://api.deepseek.com/v1/chat/completions），
+        // 剥离掉尾部的 /chat/completions，避免客户端再拼一次导致 HTTP 404
+        base = base.removeSuffix("/chat/completions").trimEnd('/')
+        var path = apiPath.trim().trim('/')
+        // apiPath 里误填的完整端点同样剥离
+        path = path.removeSuffix("/chat/completions").trim('/')
         if (path.isEmpty()) return base
         // 防重复路径：baseUrl 已带该前缀（如 baseUrl=https://api.deepseek.com/v1 且 apiPath=/v1）
         // 时避免拼成 /v1/v1 导致 HTTP 404

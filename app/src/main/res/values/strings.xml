@@ -1923,7 +1923,7 @@
     <string name="ui_group_send_image">Send as Image</string>
     <string name="ui_group_result">Analysis Result</string>
     <string name="ui_tip_ai_only">AI analysis is for reference only, content may have probabilistic deviations</string>
-    <string name="ui_group_ai_settings_title">AI Settings</string>
+    <string name="ui_group_ai_settings_title">API Settings</string>
     <string name="ui_group_ai_settings_base_url">API Base URL</string>
     <string name="ui_group_ai_settings_base_url_hint">e.g. https://api.deepseek.com</string>
     <string name="ui_group_ai_settings_path">API Path</string>

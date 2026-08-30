@@ -603,7 +603,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         AiModelConfig.apiPath = apiPath.trim()
                         AiModelConfig.apiKey = apiKey.trim()
                         AiModelConfig.modelId = modelId.trim()
-                        showToast("已保存 AI 配置")
+                        showToast("已保存 API 配置")
                         onDismiss()
                     },
                 ) {

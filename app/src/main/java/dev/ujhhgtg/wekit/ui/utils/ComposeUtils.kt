@@ -98,6 +98,12 @@ fun showComposeDialog(
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
             )
             WindowCompat.setDecorFitsSystemWindows(window!!, false)
+            // 双保险：旧版 systemUiVisibility 标志强制 decorView 内容布局延伸到系统栏区域
+            window!!.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                )
             window!!.statusBarColor = Color.TRANSPARENT
             window!!.navigationBarColor = Color.TRANSPARENT
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

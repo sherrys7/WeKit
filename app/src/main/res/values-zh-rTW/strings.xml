@@ -1869,7 +1869,7 @@
     <string name="ui_group_send_image">傳送長圖</string>
     <string name="ui_group_result">分析結果</string>
     <string name="ui_tip_ai_only">AI分析僅供參考，內容存在概率偏差</string>
-    <string name="ui_group_ai_settings_title">AI 配置</string>
+    <string name="ui_group_ai_settings_title">API 配置</string>
     <string name="ui_group_ai_settings_base_url">API 位址</string>
     <string name="ui_group_ai_settings_base_url_hint">例如 https://api.deepseek.com</string>
     <string name="ui_group_ai_settings_path">API 路徑</string>
