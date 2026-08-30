@@ -273,7 +273,7 @@ Prefer these over raw Compose controls:
 
 ## CI
 
-- GitHub Actions: builds on push/PR to `master`/`dev` (skips non-code changes)
+- GitHub Actions: builds on push/PR to `master`/`dev`/`dev-sherry`。纯文档变更（`*.md`/`*.txt` 等 paths-ignore 列表内文件）不会触发 CI；修改 AGENTS.md 无需构建，不会跑 CI
 - Artifacts automatically published to a release named "CI" + Telegram channel
 
 ## Progress
