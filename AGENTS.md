@@ -309,6 +309,7 @@ Prefer these over raw Compose controls:
 - 404 修复增强：`AiModelConfig.resolvedBaseUrl()` 剥离 baseUrl 中误填的完整 `/chat/completions` 端点（如 `https://api.deepseek.com/v1/chat/completions`）；`apiPath` 允许直接填完整端点路径 `/v1/chat/completions` 或前缀 `/v1`，`OpenAiChatCompletionsClient` 检测 baseUrl 已含 `/chat/completions` 后缀时不再重复拼接，避免 HTTP 404
 - 文案：「AI 配置」→「API 配置」（`ui_group_ai_settings_title` 三语言同步），保存 toast 改为「已保存 API 配置」
 - 全屏沉浸双保险：`showComposeDialog` fullScreen 分支增加 `decorView.systemUiVisibility`（LAYOUT_STABLE/FULLSCREEN/HIDE_NAVIGATION），配合 `setDecorFitsSystemWindows(false)` 确保内容背景延伸到顶部导航栏
+- 群聊分析默认主题重写：`buildAnalysisPrompt` 深度分析分支改为「联想标题 + 内容概览 + 灵活模块」（主要内容/重点话题/整体氛围/有趣亮点/总结），模块标题与数量（4~6）由模型按聊天内容灵活组织；去掉旧 5 模块（话题总结/情绪评估/关键信息/人物倾向/回复方案）与【】固定格式
 
 ### In Progress
 - (none)
