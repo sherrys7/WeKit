@@ -2,12 +2,6 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 
 import android.view.View
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -244,7 +238,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .animateContentSize(animationSpec = tween(250))
                         .background(
                             MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(24.dp),
@@ -286,11 +279,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         }
                     }
 
-                    AnimatedVisibility(
-                        visible = !collapsed,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                    ) {
+                    if (!collapsed) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
                         // 选择总结时段
@@ -330,27 +319,15 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         ) {
                             GroupTimeRange.entries.forEach { range ->
                                 val selected = timeRange == range
-                                val chipColor by animateColorAsState(
-                                    if (selected) MaterialTheme.colorScheme.background else Color.Transparent,
-                                    animationSpec = tween(200),
-                                )
-                                val chipBorder by animateColorAsState(
-                                    if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                    animationSpec = tween(200),
-                                )
-                                val chipText by animateColorAsState(
-                                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    animationSpec = tween(200),
-                                )
                                 Surface(
                                     shape = RoundedCornerShape(18.dp),
-                                    color = chipColor,
-                                    border = BorderStroke(1.dp, chipBorder),
+                                    color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent,
+                                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
                                 ) {
                                     Text(
                                         text = stringResource(range.labelRes),
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = chipText,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier
                                             .clickable(enabled = !isLoading) { timeRange = range }
                                             .padding(horizontal = 14.dp, vertical = 8.dp),
@@ -360,45 +337,29 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         }
 
                         // 模型容量（筛选展开）
-                        AnimatedVisibility(
-                            visible = showAdvanced,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                        ) {
-                            Column {
-                                Spacer(Modifier.height(12.dp))
-                                Text(
-                                    text = stringResource(R.string.ui_group_model_capacity),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    ModelCapacity.entries.forEach { capacity ->
-                                        val selected = modelCapacity == capacity
-                                        val capColor by animateColorAsState(
-                                            if (selected) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                            animationSpec = tween(200),
+                        if (showAdvanced) {
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.ui_group_model_capacity),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ModelCapacity.entries.forEach { capacity ->
+                                    val selected = modelCapacity == capacity
+                                    Surface(
+                                        shape = RoundedCornerShape(14.dp),
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    ) {
+                                        Text(
+                                            text = capacity.label,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .clickable(enabled = !isLoading) { modelCapacity = capacity }
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
                                         )
-                                        val capText by animateColorAsState(
-                                            if (selected) MaterialTheme.colorScheme.onPrimary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            animationSpec = tween(200),
-                                        )
-                                        Surface(
-                                            shape = RoundedCornerShape(14.dp),
-                                            color = capColor,
-                                        ) {
-                                            Text(
-                                                text = capacity.label,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = capText,
-                                                modifier = Modifier
-                                                    .clickable(enabled = !isLoading) { modelCapacity = capacity }
-                                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -432,7 +393,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             Text(stringResource(R.string.ui_group_generate_start))
                         }
 
-                        AnimatedVisibility(visible = isLoading, enter = fadeIn(), exit = fadeOut()) {
+                        if (isLoading) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(top = 12.dp),
@@ -446,43 +407,35 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             }
                         }
 
-                        AnimatedVisibility(visible = errorMessage != null, enter = fadeIn(), exit = fadeOut()) {
-                            errorMessage?.let { err ->
-                                Text(
-                                    text = err,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(top = 12.dp),
-                                )
-                            }
+                        errorMessage?.let { err ->
+                            Text(
+                                text = err,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 12.dp),
+                            )
                         }
 
-                        AnimatedVisibility(
-                            visible = report != null,
-                            enter = fadeIn(),
-                            exit = fadeOut(),
-                        ) {
-                            report?.let { result ->
-                                Spacer(Modifier.height(12.dp))
-                                val rangeText = generatedRangeRes?.let { stringResource(it) }
-                                val timeText = generatedAt
-                                if (rangeText != null || timeText != null) {
-                                    Text(
-                                        text = buildString {
-                                            rangeText?.let { append("【").append(it).append("总结】") }
-                                            timeText?.let { append("生成时间：").append(it) }
-                                        },
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                }
-                                MarkdownText(
-                                    markdown = result,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    style = MaterialTheme.typography.bodySmall,
+                        report?.let { result ->
+                            Spacer(Modifier.height(12.dp))
+                            val rangeText = generatedRangeRes?.let { stringResource(it) }
+                            val timeText = generatedAt
+                            if (rangeText != null || timeText != null) {
+                                Text(
+                                    text = buildString {
+                                        rangeText?.let { append("【").append(it).append("总结】") }
+                                        timeText?.let { append("生成时间：").append(it) }
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
+                                Spacer(Modifier.height(8.dp))
                             }
+                            MarkdownText(
+                                markdown = result,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
                         }
                     }
                 }
