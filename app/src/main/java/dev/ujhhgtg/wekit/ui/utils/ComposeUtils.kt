@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.graphics.drawable.toDrawable
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
@@ -91,21 +90,18 @@ fun showComposeDialog(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
             )
-            // 全屏沉浸：透明状态栏/导航栏，内容延伸至系统栏区域（由 Composable 侧 insets padding 处理避让）
+            // 不沉浸：decor 默认 fits system windows，内容从状态栏下方开始；
+            // 状态栏/导航栏着色为页面背景色（由 Compose 内容侧回写精确的 surface 色），
+            // 视觉上背景延伸到系统栏
             window!!.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
             window!!.clearFlags(
                 WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
             )
-            WindowCompat.setDecorFitsSystemWindows(window!!, false)
-            // 双保险：旧版 systemUiVisibility 标志强制 decorView 内容布局延伸到系统栏区域
-            window!!.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                )
-            window!!.statusBarColor = Color.TRANSPARENT
-            window!!.navigationBarColor = Color.TRANSPARENT
+            // 首帧前的近似底色，避免回写前一闪而过露出宿主界面；随后被内容侧精确覆盖
+            val initialBarColor = if (context.isDarkMode) 0xFF1C1B1F.toInt() else Color.WHITE
+            window!!.statusBarColor = initialBarColor
+            window!!.navigationBarColor = initialBarColor
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 window!!.isStatusBarContrastEnforced = false
                 window!!.isNavigationBarContrastEnforced = false
