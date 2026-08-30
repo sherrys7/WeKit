@@ -298,6 +298,13 @@ Prefer these over raw Compose controls:
 - 群聊智能分析界面重构：长按菜单进入全屏界面（左上「分析报告」+ 右上 API 设置/关闭）；API 设置精简为四参数（API 地址/API 路径/API Key(Bearer Token)/模型名称，去服务商选择，保存时强制 OpenAI Chat Completions 兼容）；主区为时段/容量/自定义主题输入+开始生成；报告流式边生成边展现（`onDelta` 回调）；底部 2x2 操作区（复制文字/发送文字/保存图像/发送图像）
 - `showComposeDialog` 增加 `fullScreen` 参数（窗口 MATCH_PARENT + 内容 fillMaxSize）
 - `AiModelConfig` 新增 `apiPath` 偏好 + `resolvedBaseUrl()`（baseUrl + apiPath 拼接）
+- 群聊智能分析界面按设计稿重构：顶部「分析报告」+ 绿色日期范围（`yyyy/MM/dd ~ yyyy/MM/dd`）+ 右上 Tune 折叠整卡；「智能洞察」分组标签；可折叠智能总结卡片（浅灰绿底 + primary 35% 描边 + 24dp 圆角，头部 36dp 圆形魔法棒图标 + Expand 箭头）；「选择总结时段」行右侧 Tune（展开/收起模型容量）+ Settings（打开 AI 配置）；8 项时段 chips 横向滚动；输入框占位改设计稿原文；开始生成按钮深青底白字魔法图标；报告区嵌套卡片内，主内容 verticalScroll，底部 2x2 操作区保留
+- `GroupTimeRange` 枚举扩为 8 项（新增 LAST_WEEK/LAST_MONTH/LAST_YEAR，labelRes 映射 last_week/last_month/last_year），`groupRangeStartEnd` 补边界（上周=上周一~本周一、上月=上月1号~本月1号、去年=去年1月1~今年1月1，均清时分秒）
+- 三语言同步 7 个新字符串；`ui_group_analyse_range*`/`ui_group_result`/`ui_tip_ai_only`/`ui_group_model_capacity_tip`/`ui_group_custom_topic` 已无代码引用（保留为资源）
+- 全屏沉浸优化：`showComposeDialog` 的 fullScreen 分支设置透明状态栏/导航栏 + `WindowCompat.setDecorFitsSystemWindows(false)`（edge-to-edge，内容背景延伸至系统栏区域，由 Composable 的 `statusBarsPadding` 等做内容避让）
+- 右上角图标由 Tune（折叠）改为 Close（关闭弹窗）；折叠交互保留在卡片头部 Expand 箭头
+- 交互动画：卡片折叠/高级筛选/生成中/错误/报告区改用 `AnimatedVisibility`（expandVertically/shrinkVertically + fadeIn/fadeOut）；时段 chips 与容量 chips 选中态用 `animateColorAsState` 平滑过渡
+- 修复 HTTP 404：`AiModelConfig.resolvedBaseUrl()` 增加路径去重（baseUrl 已带 `/v1` 且 apiPath 又填 `/v1` 时不再重复拼接）；`OpenAiChatCompletionsClient` 错误信息附带实际请求 endpoint 便于定位
 
 ### In Progress
 - (none)
@@ -315,11 +322,11 @@ Prefer these over raw Compose controls:
 - 三卡默认关闭，减少初始干扰
 
 ## Next Steps
-1. 群聊智能分析重构已提交待 CI 构建验证（本地不构建，CI 负责编译）
+1. 沉浸+关闭按钮+动画+404 修复已提交，待 CI 构建验证（本地不构建，CI 负责编译）
 2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
 
 ## Critical Context
-- 远端 `origin/dev-sherry` 最新 commit：`e5a347b`
+- 远端 `origin/dev-sherry` 最新 commit：`385d856c`
 - 网易云 API：`FFAPI = "https://ffapi.cn/int/v1/dg_netease"`
   - 搜索 `GET ?msg={keyword}&limit=20&format=json` → `data[{n, title, singer, pic}]`
   - 选歌 `GET ?msg={keyword}&n={index}&format=json` → `data{id, name, singer, pic, url, lrc}`

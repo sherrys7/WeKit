@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -87,6 +88,11 @@ fun showComposeDialog(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
             )
+            // 全屏沉浸：透明状态栏/导航栏，内容延伸至系统栏区域（由 Composable 侧 insets padding 处理避让）
+            window!!.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window!!.statusBarColor = Color.TRANSPARENT
+            window!!.navigationBarColor = Color.TRANSPARENT
+            WindowCompat.setDecorFitsSystemWindows(window!!, false)
         }
         show()
     }

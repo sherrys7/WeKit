@@ -20,8 +20,13 @@ internal object AiModelConfig {
     /** 完整请求前缀 = baseUrl + apiPath，provider 客户端再拼接协议端点（如 /chat/completions） */
     fun resolvedBaseUrl(): String {
         val base = baseUrl.trim().trimEnd('/')
-        val path = apiPath.trim().trimStart('/')
-        return if (base.isNotEmpty() && path.isNotEmpty()) "$base/$path" else base
+        if (base.isEmpty()) return base
+        val path = apiPath.trim().trim('/')
+        if (path.isEmpty()) return base
+        // 防重复路径：baseUrl 已带该前缀（如 baseUrl=https://api.deepseek.com/v1 且 apiPath=/v1）
+        // 时避免拼成 /v1/v1 导致 HTTP 404
+        if (base.endsWith("/$path") || base == path) return base
+        return "$base/$path"
     }
 
     fun providerType(): ModelProviderType =

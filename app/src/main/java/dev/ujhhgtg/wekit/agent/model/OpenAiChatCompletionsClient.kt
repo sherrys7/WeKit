@@ -47,7 +47,7 @@ class OpenAiChatCompletionsClient(
             setBody(LlmJson.json.encodeToString(JsonObject.serializer(), body))
         }.execute { resp ->
             if (!resp.status.isSuccess()) {
-                emit(LlmStreamEvent.Failed(LlmException("HTTP ${resp.status.value}: ${readBodyText(resp)}")))
+                emit(LlmStreamEvent.Failed(LlmException("HTTP ${resp.status.value} @ $endpoint: ${readBodyText(resp)}")))
                 return@execute
             }
             val acc = ToolCallAccumulator()
