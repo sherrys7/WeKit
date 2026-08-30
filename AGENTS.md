@@ -324,11 +324,11 @@ Prefer these over raw Compose controls:
 - 三卡默认关闭，减少初始干扰
 
 ## Next Steps
-1. 沉浸+关闭按钮+动画+404 修复已提交，待 CI 构建验证（本地不构建，CI 负责编译）
+1. 布局重叠 + 状态栏沉浸修复已提交 `236448dd`，待 CI 构建验证（本地不构建，CI 负责编译）
 2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
 
 ## Critical Context
-- 远端 `origin/dev-sherry` 最新 commit：`2f87274e`
+- 远端 `origin/dev-sherry` 最新 commit：`236448dd`
 - 网易云 API：`FFAPI = "https://ffapi.cn/int/v1/dg_netease"`
   - 搜索 `GET ?msg={keyword}&limit=20&format=json` → `data[{n, title, singer, pic}]`
   - 选歌 `GET ?msg={keyword}&n={index}&format=json` → `data{id, name, singer, pic, url, lrc}`
