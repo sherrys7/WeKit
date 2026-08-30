@@ -17,16 +17,14 @@ internal object AiModelConfig {
     var apiKey by WePrefs.prefOption("ai_reply_api_key", "")
     var modelId by WePrefs.prefOption("ai_reply_model_id", "")
 
-    /** 完整请求前缀 = baseUrl + apiPath，provider 客户端再拼接协议端点（如 /chat/completions） */
+    /** 完整请求前缀 = baseUrl + apiPath；apiPath 可为前缀（/v1）或完整端点路径（/v1/chat/completions） */
     fun resolvedBaseUrl(): String {
         var base = baseUrl.trim().trimEnd('/')
         if (base.isEmpty()) return base
         // 用户可能在 baseUrl 里误填了完整端点（如 https://api.deepseek.com/v1/chat/completions），
-        // 剥离掉尾部的 /chat/completions，避免客户端再拼一次导致 HTTP 404
+        // 剥离掉尾部的 /chat/completions，统一由客户端拼接
         base = base.removeSuffix("/chat/completions").trimEnd('/')
-        var path = apiPath.trim().trim('/')
-        // apiPath 里误填的完整端点同样剥离
-        path = path.removeSuffix("/chat/completions").trim('/')
+        val path = apiPath.trim().trim('/')
         if (path.isEmpty()) return base
         // 防重复路径：baseUrl 已带该前缀（如 baseUrl=https://api.deepseek.com/v1 且 apiPath=/v1）
         // 时避免拼成 /v1/v1 导致 HTTP 404

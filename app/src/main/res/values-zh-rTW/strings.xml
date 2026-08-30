@@ -1873,7 +1873,7 @@
     <string name="ui_group_ai_settings_base_url">API 位址</string>
     <string name="ui_group_ai_settings_base_url_hint">例如 https://api.deepseek.com</string>
     <string name="ui_group_ai_settings_path">API 路徑</string>
-    <string name="ui_group_ai_settings_path_hint">例如 /v1（端點前綴）</string>
+    <string name="ui_group_ai_settings_path_hint">例如 /v1/chat/completions 或 /v1</string>
     <string name="ui_group_ai_settings_api_key">API Key（Bearer Token）</string>
     <string name="ui_group_ai_settings_api_key_hint">用於認證的 Bearer Token</string>
     <string name="ui_group_ai_settings_model_id">模型名稱</string>

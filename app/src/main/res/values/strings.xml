@@ -1927,7 +1927,7 @@
     <string name="ui_group_ai_settings_base_url">API Base URL</string>
     <string name="ui_group_ai_settings_base_url_hint">e.g. https://api.deepseek.com</string>
     <string name="ui_group_ai_settings_path">API Path</string>
-    <string name="ui_group_ai_settings_path_hint">e.g. /v1 (endpoint prefix)</string>
+    <string name="ui_group_ai_settings_path_hint">e.g. /v1/chat/completions or /v1</string>
     <string name="ui_group_ai_settings_api_key">API Key (Bearer Token)</string>
     <string name="ui_group_ai_settings_api_key_hint">Bearer token for authentication</string>
     <string name="ui_group_ai_settings_model_id">Model Name</string>

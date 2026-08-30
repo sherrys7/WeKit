@@ -34,7 +34,10 @@ class OpenAiChatCompletionsClient(
     private val baseUrl: String,
     private val apiKey: String,
 ) : LlmClient {
-    private val endpoint = "${baseUrl.trimEnd('/')}/chat/completions"
+    // apiPath 可能已携带完整端点（/v1/chat/completions），已含后缀时不再重复拼接
+    private val endpoint: String = baseUrl.trimEnd('/').let { trimmed ->
+        if (trimmed.endsWith("/chat/completions")) trimmed else "$trimmed/chat/completions"
+    }
 
     override fun stream(request: LlmRequest): Flow<LlmStreamEvent> = flow {
         val body = LlmJson.shallowMerge(buildBody(request, stream = true), request.customJsonOverride)

@@ -306,7 +306,7 @@ Prefer these over raw Compose controls:
 - 修复 HTTP 404：`AiModelConfig.resolvedBaseUrl()` 增加路径去重（baseUrl 已带 `/v1` 且 apiPath 又填 `/v1` 时不再重复拼接）；`OpenAiChatCompletionsClient` 错误信息附带实际请求 endpoint 便于定位
 - 状态栏沉浸补全（参照 PanelShell 模式）：fullScreen 分支 clearFlags(TRANSLUCENT_STATUS/NAVIGATION)、`isStatusBarContrastEnforced=false`、`WindowInsetsControllerCompat` 按系统深浅色设置图标明暗
 - 布局回滚：动画方案（AnimatedVisibility/animateColorAsState/animateContentSize）在设备上仍有重叠问题，`GroupChatSummary.kt` 布局回滚到 `385d856c` 设计稿版本（纯 `if (!collapsed)` + 无动画），右上角 Close 保留；状态栏沉浸与 404 修复不受影响
-- 404 修复增强：`AiModelConfig.resolvedBaseUrl()` 现会剥离 baseUrl 与 apiPath 中误填的完整 `/chat/completions` 端点（如 `https://api.deepseek.com/v1/chat/completions`），避免客户端再拼一次导致 HTTP 404
+- 404 修复增强：`AiModelConfig.resolvedBaseUrl()` 剥离 baseUrl 中误填的完整 `/chat/completions` 端点（如 `https://api.deepseek.com/v1/chat/completions`）；`apiPath` 允许直接填完整端点路径 `/v1/chat/completions` 或前缀 `/v1`，`OpenAiChatCompletionsClient` 检测 baseUrl 已含 `/chat/completions` 后缀时不再重复拼接，避免 HTTP 404
 - 文案：「AI 配置」→「API 配置」（`ui_group_ai_settings_title` 三语言同步），保存 toast 改为「已保存 API 配置」
 - 全屏沉浸双保险：`showComposeDialog` fullScreen 分支增加 `decorView.systemUiVisibility`（LAYOUT_STABLE/FULLSCREEN/HIDE_NAVIGATION），配合 `setDecorFitsSystemWindows(false)` 确保内容背景延伸到顶部导航栏
 
