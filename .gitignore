@@ -50,3 +50,6 @@ docs/superpowers/
 
 # Extension-pack build outputs (./x extensions pack/lock)
 dist/
+
+# Local agent memory (keep out of git)
+.monkeycode/
