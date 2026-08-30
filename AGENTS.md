@@ -305,6 +305,8 @@ Prefer these over raw Compose controls:
 - 右上角图标由 Tune（折叠）改为 Close（关闭弹窗）；折叠交互保留在卡片头部 Expand 箭头
 - 交互动画：卡片折叠/高级筛选/生成中/错误/报告区改用 `AnimatedVisibility`（expandVertically/shrinkVertically + fadeIn/fadeOut）；时段 chips 与容量 chips 选中态用 `animateColorAsState` 平滑过渡
 - 修复 HTTP 404：`AiModelConfig.resolvedBaseUrl()` 增加路径去重（baseUrl 已带 `/v1` 且 apiPath 又填 `/v1` 时不再重复拼接）；`OpenAiChatCompletionsClient` 错误信息附带实际请求 endpoint 便于定位
+- 修复布局重叠：AnimatedVisibility 的 expandVertically/shrinkVertically 尺寸动画在 verticalScroll 容器中会溢出绘制导致按钮压住输入框/chips，全部改为 fadeIn/fadeOut + 主卡片 `animateContentSize`（tween 250）
+- 状态栏沉浸补全（参照 PanelShell 模式）：fullScreen 分支 clearFlags(TRANSLUCENT_STATUS/NAVIGATION)、`isStatusBarContrastEnforced=false`、`WindowInsetsControllerCompat` 按系统深浅色设置图标明暗
 
 ### In Progress
 - (none)

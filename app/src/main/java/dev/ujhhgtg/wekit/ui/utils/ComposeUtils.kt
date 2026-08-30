@@ -3,6 +3,7 @@ package dev.ujhhgtg.wekit.ui.utils
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
+import android.os.Build
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -25,6 +27,7 @@ import dev.ujhhgtg.wekit.ui.content.nukex.NukeModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.ModuleTheme
 import dev.ujhhgtg.wekit.ui.utils.theme.SettingsUiEngine
 import dev.ujhhgtg.wekit.ui.utils.theme.ThemeSettings
+import dev.ujhhgtg.wekit.utils.android.isDarkMode
 
 // useful for showing a compose dialog in non-compose context,
 // or when you don't want to manage the state for a dialog inside a composable
@@ -90,9 +93,21 @@ fun showComposeDialog(
             )
             // 全屏沉浸：透明状态栏/导航栏，内容延伸至系统栏区域（由 Composable 侧 insets padding 处理避让）
             window!!.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+            window!!.clearFlags(
+                WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or
+                    WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION,
+            )
+            WindowCompat.setDecorFitsSystemWindows(window!!, false)
             window!!.statusBarColor = Color.TRANSPARENT
             window!!.navigationBarColor = Color.TRANSPARENT
-            WindowCompat.setDecorFitsSystemWindows(window!!, false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                window!!.isStatusBarContrastEnforced = false
+                window!!.isNavigationBarContrastEnforced = false
+            }
+            WindowInsetsControllerCompat(window!!, window!!.decorView).apply {
+                isAppearanceLightStatusBars = !context.isDarkMode
+                isAppearanceLightNavigationBars = !context.isDarkMode
+            }
         }
         show()
     }

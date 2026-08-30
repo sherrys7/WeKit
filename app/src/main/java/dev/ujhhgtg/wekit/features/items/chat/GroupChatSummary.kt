@@ -4,11 +4,10 @@ import dev.ujhhgtg.wekit.R
 import android.view.View
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -245,6 +244,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .animateContentSize(animationSpec = tween(250))
                         .background(
                             MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(24.dp),
@@ -288,8 +288,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                     AnimatedVisibility(
                         visible = !collapsed,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut(),
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                     ) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
@@ -362,8 +362,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         // 模型容量（筛选展开）
                         AnimatedVisibility(
                             visible = showAdvanced,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
+                            enter = fadeIn(),
+                            exit = fadeOut(),
                         ) {
                             Column {
                                 Spacer(Modifier.height(12.dp))
@@ -459,8 +459,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                         AnimatedVisibility(
                             visible = report != null,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
+                            enter = fadeIn(),
+                            exit = fadeOut(),
                         ) {
                             report?.let { result ->
                                 Spacer(Modifier.height(12.dp))
