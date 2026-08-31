@@ -74,17 +74,17 @@ internal fun GroupCoreMetricsCard(metrics: GroupCoreMetrics) {
             .padding(vertical = 16.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            CoreMetricItem(MaterialSymbols.Outlined.Groups, metrics.todaySpeakers, R.string.ui_group_stat_core_today_speakers)
-            CoreMetricItem(MaterialSymbols.Outlined.Chat, metrics.todayMessages, R.string.ui_group_stat_core_today_messages)
-            CoreMetricItem(MaterialSymbols.Outlined.History, metrics.historyTotal, R.string.ui_group_stat_core_history_total)
+            CoreMetricItem(MaterialSymbols.Outlined.Groups, metrics.todaySpeakers, R.string.ui_group_stat_core_today_speakers, Modifier.weight(1f))
+            CoreMetricItem(MaterialSymbols.Outlined.Chat, metrics.todayMessages, R.string.ui_group_stat_core_today_messages, Modifier.weight(1f))
+            CoreMetricItem(MaterialSymbols.Outlined.History, metrics.historyTotal, R.string.ui_group_stat_core_history_total, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun ColumnScope.CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int) {
+private fun CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier.weight(1f),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
