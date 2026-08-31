@@ -2,6 +2,14 @@ package dev.ujhhgtg.wekit.features.items.chat
 import dev.ujhhgtg.wekit.R
 
 import android.view.View
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -508,15 +516,49 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             }
         }
 
-        if (showAiSettings) {
+        AnimatedDialog(visible = showAiSettings, onDismiss = { showAiSettings = false }) {
             AiSettingsDialog(onDismiss = { showAiSettings = false })
         }
-        if (showCapacityDialog) {
+        AnimatedDialog(visible = showCapacityDialog, onDismiss = { showCapacityDialog = false }) {
             ModelCapacitySamplingDialog(
                 capacity = modelCapacity,
                 onCapacityChange = { modelCapacity = it },
                 onDismiss = { showCapacityDialog = false },
             )
+        }
+    }
+
+    /** 带遮罩与过渡动画的弹窗容器：淡入淡出遮罩 + 内容缩放上移进入/退出 */
+    @Composable
+    private fun AnimatedDialog(
+        visible: Boolean,
+        onDismiss: () -> Unit,
+        content: @Composable () -> Unit,
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(150)),
+                exit = fadeOut(tween(150)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable(onClick = onDismiss),
+                )
+            }
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220)) + slideInVertically(animationSpec = tween(220)) { it / 8 },
+                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.92f, animationSpec = tween(180)) + slideOutVertically(animationSpec = tween(180)) { it / 8 },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 16.dp),
+            ) {
+                content()
+            }
         }
     }
 
