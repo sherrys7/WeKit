@@ -315,6 +315,7 @@ Prefer these over raw Compose controls:
 - 群聊分析默认主题精简：`buildAnalysisPrompt` else 分支 systemPrompt 整段替换为用户提供的单句提示词（「你是一个微信聊天分析助手……语言幽默生动、排版清晰、记录较少时简短回复」）；userPrompt 仅保留统计数据+聊天记录片段，去掉「请进行深度分析」结尾行
 - 编译修复：bd073e7b 因误删 GroupChatSummary.kt 的 `Color` import（时段 chips 的 `Color.Transparent` 在用）导致 build 失败，df2f3c74 补回
 - 清理死代码：depth=0（群聊日报）/depth=1（话题热度统计）提示词分支从未被调用（`generateReport` 硬编码 depth=2），删除两分支及 `buildAnalysisPrompt`/`aiGenerateReport` 的 `depth` 参数；`buildAnalysisPrompt` 现在只有自定义主题/默认两条路径
+- 群聊分析新增本地统计可视化区（按用户设计稿）：页面顺序改为「核心指标（今日发言人数/今日消息数/历史总消息三列卡）→ 智能摘要卡（原有生成区）→ 深度图表（7 个可折叠模块卡：活跃发言排行/高频语义特征词云/聊天作息图鉴 2x2 四宫格/情绪指数探测/废话程度鉴定/全天活跃频次 24h 柱状图/内容载体偏好）」；新文件 `GroupStats.kt`（结构化 `GroupStats` + `computeGroupStats` + `renderStatsReport` 文本报告 + `loadCoreMetrics`/`loadGroupStats`/`loadGroupMembersMap`，从主文件迁出 `GroupTimeRange`/`groupRangeStartEnd`/extract* 工具/停用词）与 `GroupStatsCards.kt`（全部可视化 Composable，固定强调色进度条、M3 container 色四宫格、FlowRow 词云、24 柱 Canvas-free 柱状图）；统计区跟随时段选择实时加载（`LaunchedEffect(talker, timeRange)`，stats 携带时段标记），`generateReport` 接收 `precomputedStats` 复用统计区数据避免重复查询；活跃时段小时数改用 Calendar 取本地时区（原 `(createTime/1000%86400)/3600` 是 UTC 小时，时区错位 8 小时 bug 一并修复）；`WeDatabaseApi` 新增 `getMessageCountInRange`（COUNT 轻量查询，历史总消息不再全量拉取）；文本报告（AI 输入）格式保持不变；三语言新增 33 个 `ui_group_stat_*`/`ui_group_deep_charts` 字符串，`ui_group_smart_insight` 改「智能摘要/Smart Summary/智慧摘要」（zh-rTW 原值为简体「智能洞察」一并修正）
 
 ### In Progress
 - (none)

@@ -773,6 +773,16 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
+    /** 轻量统计指定会话在时间窗口内的消息条数（COUNT，不拉取消息内容） */
+    fun getMessageCountInRange(convId: String, startTime: Long, endTime: Long): Int {
+        if (convId.isEmpty()) return 0
+        val sql = """
+            SELECT COUNT(*) AS cnt FROM message WHERE talker = ? AND createTime BETWEEN ? AND ?
+        """.trimIndent()
+        return executeQuery(sql, arrayOf(convId, startTime, endTime))
+            .firstOrNull()?.long("cnt") ?: 0
+    }
+
     /**
      * 获取每个会话最近一条消息的时间
      * @return 会话 wxId 到最近消息时间（毫秒时间戳）的映射

@@ -35,6 +35,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,7 +66,6 @@ import dev.ujhhgtg.wekit.agent.model.ModelProviderManager
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.WeMessageApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageInfo
-import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
 import dev.ujhhgtg.wekit.features.api.ui.WeChatMessageContextMenuApi
 import dev.ujhhgtg.wekit.features.core.FeatureCategoryIds
@@ -85,7 +85,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.io.path.absolutePathString
@@ -97,8 +96,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     override val descriptionRes = R.string.feature_group_chat_summary_description
 
     private const val GROUP_SUMMARY_MENU_ID = 777029
-
-    private val groupSenderRegex = Regex("""^([^\n:]+):\n(.+)""", setOf(RegexOption.DOT_MATCHES_ALL))
 
     override fun onEnable() {
         WeChatMessageContextMenuApi.addProvider(this)
@@ -145,6 +142,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var generatedAt by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
+        // 核心指标（今日/历史）与统计区数据；stats 携带时段标记，时段切换时重新加载
+        var coreMetrics by remember { mutableStateOf<GroupCoreMetrics?>(null) }
+        var statsState by remember { mutableStateOf<Pair<GroupTimeRange, GroupStats>?>(null) }
+        LaunchedEffect(talker) { coreMetrics = loadCoreMetrics(talker) }
+        LaunchedEffect(talker, timeRange) { statsState = timeRange to loadGroupStats(talker, timeRange) }
+
         fun startGenerate() {
             isLoading = true
             errorMessage = null
@@ -160,6 +163,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     onDelta = { delta ->
                         withContext(Dispatchers.Main) { report = report.orEmpty() + delta }
                     },
+                    precomputedStats = statsState?.takeIf { it.first == timeRange }?.second,
                 )
                 isLoading = false
                 result.fold(
@@ -219,12 +223,15 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             ) {
                 Spacer(Modifier.height(4.dp))
 
-                // 分组标题
-                Text(
-                    text = stringResource(R.string.ui_group_smart_insight),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                // 核心指标
+                GroupSectionLabel(R.string.ui_group_stat_core_title)
+                Spacer(Modifier.height(8.dp))
+                coreMetrics?.let { GroupCoreMetricsCard(it) }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 分组标题：智能摘要
+                GroupSectionLabel(R.string.ui_group_smart_insight)
 
                 Spacer(Modifier.height(8.dp))
 
@@ -434,6 +441,13 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     }
                 }
 
+                Spacer(Modifier.height(16.dp))
+
+                // 深度图表：本地统计可视化
+                GroupSectionLabel(R.string.ui_group_deep_charts)
+                Spacer(Modifier.height(8.dp))
+                statsState?.let { (_, stats) -> GroupStatsCharts(stats) }
+
                 // 底部操作区：复制文字 / 发送文字 / 保存图像 / 发送图像
                 if (!isLoading && report != null) {
                     Spacer(Modifier.height(12.dp))
@@ -520,6 +534,15 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         if (showAiSettings) {
             AiSettingsDialog(onDismiss = { showAiSettings = false })
         }
+    }
+
+    @Composable
+    private fun GroupSectionLabel(titleRes: Int) {
+        Text(
+            text = stringResource(titleRes),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 
     @Composable
@@ -618,16 +641,10 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
         onDelta: suspend (String) -> Unit = {},
+        precomputedStats: GroupStats? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
-            val contacts = WeDatabaseApi.getGroupMembers(talker).associate { m ->
-                m.wxId to (m.remarkName.takeUnless { it.isBlank() }?.let { "$it (${m.nickname})" } ?: m.nickname)
-            }
-            // 群内昵称优先，其次联系人备注/昵称
-            val nicknameMap = WeDatabaseApi.getGroupNicknameMap(talker)
-            val membersMap = contacts.toMutableMap().apply {
-                nicknameMap.forEach { (wxId, nick) -> this[wxId] = nick }
-            }
+            val membersMap = loadGroupMembersMap(talker)
 
             val (startTime, endTime) = groupRangeStartEnd(range)
             val messagesInRange = WeDatabaseApi.getMessagesInRange(talker, startTime, endTime)
@@ -639,7 +656,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             // 统计与深度解析使用全部时段消息；自定义主题时 recentLines 内部按模型容量截取
             val messages = messagesInRange
 
-            val statsReport = buildReport(messages, membersMap, talker)
+            // 统计区已加载相同时段的数据时直接复用，避免重复查询
+            val stats = precomputedStats ?: computeGroupStats(messages, membersMap)
+            val statsReport = renderStatsReport(stats)
 
             // 配置了 AI 模型时，用 AI 生成智能群聊分析
             if (AiModelConfig.isConfigured()) {
@@ -784,250 +803,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         return trimmed
     }
 
-    private fun buildReport(
-        messages: List<WeMessage>,
-        membersMap: Map<String, String>,
-        talker: String,
-    ): String {
-        val totalCount = messages.size
-
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        val startTime = dateFormat.format(Date(messages.first().createTime))
-        val endTime = dateFormat.format(Date(messages.last().createTime))
-
-        val typeCounts = mutableMapOf<String, Int>()
-        val senderCounts = mutableMapOf<String, MutableList<WeMessage>>()
-        val timePeriods = mutableMapOf("凌晨" to 0, "上午" to 0, "下午" to 0, "夜晚" to 0)
-        val allTextWords = mutableListOf<String>()
-        var laughCount = 0
-        var questionCount = 0
-        var exclamationCount = 0
-        var tildeCount = 0
-        val lengthDist = mutableMapOf("≤5字" to 0, "6-20字" to 0, "21-50字" to 0, ">50字" to 0)
-
-        for (msg in messages) {
-            val type = MessageType.fromCode(msg.typeCode)
-            val category = categorizeMessageType(type, msg.typeCode)
-            typeCounts.mergeCount(category, 1, Int::plus)
-
-            val senderId = extractSenderId(msg, membersMap)
-            senderCounts.getOrPut(senderId) { mutableListOf() }.add(msg)
-
-            val hour = (msg.createTime / 1000 % 86400) / 3600
-            val period = when {
-                hour < 6 -> "凌晨"
-                hour < 12 -> "上午"
-                hour < 18 -> "下午"
-                else -> "夜晚"
-            }
-            timePeriods.mergeCount(period, 1, Int::plus)
-
-            if (type?.isText == true) {
-                val textContent = extractTextContent(msg, membersMap)
-                val words = extractWords(textContent)
-                allTextWords.addAll(words)
-
-                val textLen = textContent.length
-                when {
-                    textLen <= 5 -> lengthDist.mergeCount("≤5字", 1, Int::plus)
-                    textLen <= 20 -> lengthDist.mergeCount("6-20字", 1, Int::plus)
-                    textLen <= 50 -> lengthDist.mergeCount("21-50字", 1, Int::plus)
-                    else -> lengthDist.mergeCount(">50字", 1, Int::plus)
-                }
-
-                if (textContent.contains(Regex("[哈哈呵呵嘿嘿😂🤣]"))) laughCount++
-                if (textContent.endsWith("?") || textContent.endsWith("？")) questionCount++
-                if (textContent.endsWith("!") || textContent.endsWith("！")) exclamationCount++
-                if (textContent.contains("~") || textContent.contains("～")) tildeCount++
-            }
-        }
-
-        val activeSpeakers = senderCounts.size
-
-        val sortedSpeakers = senderCounts.entries
-            .sortedByDescending { it.value.size }
-            .take(10)
-
-        val wordFreq = allTextWords
-            .groupBy { it }
-            .mapValues { it.value.size }
-            .filter { it.key.length >= 2 || it.key.all { c -> c.isLetterOrDigit() } }
-            .filterNot { it.key in commonStopWords }
-            .entries
-            .sortedByDescending { it.value }
-            .take(10)
-
-        val sb = StringBuilder()
-        sb.appendLine("群聊统计报告")
-        sb.appendLine("统计周期:${startTime}至${endTime}")
-        sb.appendLine("总消息:${totalCount}条 发言人数:${activeSpeakers}人")
-        sb.appendLine("消息载体 图片:${typeCounts.getOrDefault("图片", 0)}条 语音:${typeCounts.getOrDefault("语音", 0)}条 文本:${typeCounts.getOrDefault("文本", 0)}条 视频:${typeCounts.getOrDefault("视频", 0)}条 系统:${typeCounts.getOrDefault("系统", 0)}条 文件/链接:${typeCounts.getOrDefault("文件/链接", 0)}条 表情:${typeCounts.getOrDefault("表情", 0)}条")
-        sb.appendLine("发言排行")
-        sortedSpeakers.forEachIndexed { index, (speaker, msgs) ->
-            val displayName = membersMap[speaker] ?: speaker
-            sb.appendLine("${index + 1}.$displayName:${msgs.size}条")
-        }
-        sb.appendLine("活跃时段 凌晨(0-5):${timePeriods["凌晨"]}条 上午(6-11):${timePeriods["上午"]}条 下午(12-17):${timePeriods["下午"]}条 夜晚(18-23):${timePeriods["夜晚"]}条")
-        if (wordFreq.isNotEmpty()) {
-            sb.append("高频词 ")
-            wordFreq.forEachIndexed { index, (word, count) ->
-                sb.append("$word:${count}次")
-                if (index < wordFreq.size - 1) sb.append(" ")
-            }
-            sb.appendLine()
-        }
-        sb.appendLine("情绪指纹")
-        val textMsgCount = typeCounts.getOrDefault("文本", 0).coerceAtLeast(1)
-        sb.appendLine("笑点浓度:${"%.1f".format(laughCount.toDouble() / textMsgCount * 100)}% 疑问句比例:${"%.1f".format(questionCount.toDouble() / textMsgCount * 100)}% 感叹句比例:${"%.1f".format(exclamationCount.toDouble() / textMsgCount * 100)}% 波浪号比例:${"%.1f".format(tildeCount.toDouble() / textMsgCount * 100)}%")
-        sb.appendLine("废话程度鉴定 ≤5字:${lengthDist["≤5字"]}条 6-20字:${lengthDist["6-20字"]}条 21-50字:${lengthDist["21-50字"]}条 >50字:${lengthDist[">50字"]}条")
-        sb.appendLine("用户画像")
-        sortedSpeakers.forEach { (speaker, msgs) ->
-            val displayName = membersMap[speaker] ?: speaker
-            val pct = "%.1f".format(msgs.size.toDouble() / totalCount * 100)
-            val mainType = msgs.groupBy { m ->
-                val t = MessageType.fromCode(m.typeCode)
-                categorizeMessageType(t, m.typeCode)
-            }.maxByOrNull { it.value.size }?.key ?: "文本"
-            sb.appendLine("·$displayName:${msgs.size}条($pct%),主发$mainType")
-        }
-        sb.appendLine()
-        sb.appendLine("Hchat 群聊统计·${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())}")
-
-        return sb.toString()
-    }
-
-    private fun categorizeMessageType(type: MessageType?, rawCode: Int): String {
-        if (type == null) return "其他"
-        return when {
-            type.isText -> "文本"
-            rawCode == MessageType.IMAGE.code -> "图片"
-            rawCode == MessageType.VOICE.code -> "语音"
-            rawCode == MessageType.VIDEO.code || rawCode == MessageType.MICRO_VIDEO.code -> "视频"
-            type.isSystem -> "系统"
-            type.isSticker -> "表情"
-            type.isLink || rawCode == MessageType.FILE.code -> "文件/链接"
-            else -> "其他"
-        }
-    }
-
-    private fun extractSenderId(msg: WeMessage, membersMap: Map<String, String>): String {
-        if (msg.isSend != 0) return "我"
-        // 发送者 wxid 必须是群内真实成员，避免特殊消息格式导致误切分
-        val match = groupSenderRegex.find(msg.content)
-        val rawSender = match?.groupValues?.get(1) ?: return "<未知>"
-        if (membersMap.containsKey(rawSender)) return rawSender
-        // 微信部分消息中发送者可能带后缀（如 xxxx:xxx）或被截断，尝试模糊匹配已知成员
-        return membersMap.keys.firstOrNull { rawSender.startsWith(it) } ?: rawSender
-    }
-
-    private fun resolveSenderName(senderId: String, membersMap: Map<String, String>): String =
-        membersMap[senderId] ?: senderId
-
-    private fun extractTextContent(msg: WeMessage, membersMap: Map<String, String>): String {
-        if (msg.isSend != 0) return msg.content
-        val match = groupSenderRegex.find(msg.content)
-        return match?.groupValues?.get(2) ?: msg.content
-    }
-
-    private fun extractWords(text: String): List<String> {
-        return text.split(Regex("[\\s,，。！？、；：\"\"''（（））《》【】\\[\\]\\{\\}「」『』\\.!?;:，。！？、；：\n\r\t]+"))
-            .map { it.trim() }
-            .filter { it.isNotBlank() && it.length >= 2 }
-    }
-
-    private val commonStopWords = setOf(
-        "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一",
-        "一个", "上", "也", "很", "到", "说", "要", "去", "你", "会", "着",
-        "没有", "看", "好", "自己", "这", "他", "她", "它", "们", "那", "些",
-        "什么", "怎么", "因为", "所以", "但是", "如果", "虽然", "可以", "这个",
-        "那个", "吧", "吗", "啊", "嗯", "哦", "哈", "呀", "呢", "啦", "么",
-        "还是", "就是", "不是", "只是", "但是", "而且", "或者", "然后", "以后",
-        "时候", "现在", "已经", "可能", "应该", "没有", "觉得", "知道", "看到",
-        "过来", "出来", "起来", "进去", "回到", "拿到", "想到", "我们", "你们",
-        "他们", "大家", "东西", "意思", "时间", "朋友", "回复", "收到", "明白",
-    )
-
-    private fun <K> MutableMap<K, Int>.mergeCount(key: K, value: Int, op: (Int, Int) -> Int) {
-        this[key] = op(this.getOrDefault(key, 0), value)
-    }
 }
 
-/** 群聊分析时间范围 */
-private enum class GroupTimeRange(val labelRes: Int) {
-    TODAY(R.string.ui_group_range_today),
-    YESTERDAY(R.string.ui_group_range_yesterday),
-    THIS_WEEK(R.string.ui_group_range_this_week),
-    LAST_WEEK(R.string.ui_group_range_last_week),
-    THIS_MONTH(R.string.ui_group_range_this_month),
-    LAST_MONTH(R.string.ui_group_range_last_month),
-    THIS_YEAR(R.string.ui_group_range_this_year),
-    LAST_YEAR(R.string.ui_group_range_last_year),
-}
-
-/** AI 上下文容量档位（token） */
-private enum class ModelCapacity(val tokens: Long, val label: String) {
-    K128(128 * 1024L, "128K"),
-    K256(256 * 1024L, "256K"),
-    K512(512 * 1024L, "512K"),
-    M1(1024 * 1024L, "1M"),
-}
-
-/** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
-private fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
-    val now = System.currentTimeMillis()
-    val startCal = Calendar.getInstance().apply { timeInMillis = now }
-    val endCal = Calendar.getInstance().apply { timeInMillis = now }
-
-    fun clearTime(c: Calendar) {
-        c.set(Calendar.HOUR_OF_DAY, 0)
-        c.set(Calendar.MINUTE, 0)
-        c.set(Calendar.SECOND, 0)
-        c.set(Calendar.MILLISECOND, 0)
-    }
-
-    when (range) {
-        GroupTimeRange.TODAY -> clearTime(startCal)
-        GroupTimeRange.YESTERDAY -> {
-            startCal.add(Calendar.DAY_OF_YEAR, -1)
-            clearTime(startCal)
-            clearTime(endCal)
-        }
-        GroupTimeRange.THIS_WEEK -> {
-            startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            clearTime(startCal)
-        }
-        GroupTimeRange.LAST_WEEK -> {
-            startCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            clearTime(startCal)
-            startCal.add(Calendar.WEEK_OF_YEAR, -1)
-            endCal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            clearTime(endCal)
-        }
-        GroupTimeRange.THIS_MONTH -> {
-            startCal.set(Calendar.DAY_OF_MONTH, 1)
-            clearTime(startCal)
-        }
-        GroupTimeRange.LAST_MONTH -> {
-            startCal.set(Calendar.DAY_OF_MONTH, 1)
-            clearTime(startCal)
-            startCal.add(Calendar.MONTH, -1)
-            endCal.set(Calendar.DAY_OF_MONTH, 1)
-            clearTime(endCal)
-        }
-        GroupTimeRange.THIS_YEAR -> {
-            startCal.set(Calendar.DAY_OF_YEAR, 1)
-            clearTime(startCal)
-        }
-        GroupTimeRange.LAST_YEAR -> {
-            startCal.set(Calendar.DAY_OF_YEAR, 1)
-            clearTime(startCal)
-            startCal.add(Calendar.YEAR, -1)
-            endCal.set(Calendar.DAY_OF_YEAR, 1)
-            clearTime(endCal)
-        }
-    }
-    return startCal.timeInMillis to endCal.timeInMillis
-}
 
 private class GroupSummaryIcon : VectorPathDrawable(
     "M420,624L180,660L420,696L456,936L492,696L732,660L492,624L456,384ZM696,96L676,196L576,216L676,236L696,336L716,236L816,216L716,196Z"
