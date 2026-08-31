@@ -513,6 +513,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         }
         if (showCapacityDialog) {
             ModelCapacitySamplingDialog(
+                capacity = modelCapacity,
+                onCapacityChange = { modelCapacity = it },
                 onDismiss = { showCapacityDialog = false },
             )
         }
@@ -611,8 +613,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     }
 
     @Composable
-    private fun ModelCapacitySamplingDialog(onDismiss: () -> Unit) {
-        var draftCapacity by remember { mutableStateOf(modelCapacity) }
+    private fun ModelCapacitySamplingDialog(
+        capacity: ModelCapacity,
+        onCapacityChange: (ModelCapacity) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        var draftCapacity by remember { mutableStateOf(capacity) }
         var draftLimit by remember { mutableIntStateOf(AiModelConfig.extractLimit) }
 
         AlertDialogContent(
@@ -685,7 +691,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             confirmButton = {
                 Button(
                     onClick = {
-                        modelCapacity = draftCapacity
+                        onCapacityChange(draftCapacity)
                         AiModelConfig.extractLimit = draftLimit
                         showToast("已保存")
                         onDismiss()
