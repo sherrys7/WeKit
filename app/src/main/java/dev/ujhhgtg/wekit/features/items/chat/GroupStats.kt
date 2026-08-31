@@ -53,6 +53,14 @@ internal enum class GroupTimeRange(val labelRes: Int) {
     LAST_YEAR(R.string.ui_group_range_last_year),
 }
 
+/** AI 上下文容量档位（token） */
+internal enum class ModelCapacity(val tokens: Long, val label: String) {
+    K128(128 * 1024L, "128K"),
+    K256(256 * 1024L, "256K"),
+    K512(512 * 1024L, "512K"),
+    M1(1024 * 1024L, "1M"),
+}
+
 /** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
 internal fun groupRangeStartEnd(range: GroupTimeRange): Pair<Long, Long> {
     val now = System.currentTimeMillis()

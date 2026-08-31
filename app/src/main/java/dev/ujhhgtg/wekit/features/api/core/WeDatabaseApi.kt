@@ -780,7 +780,7 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
             SELECT COUNT(*) AS cnt FROM message WHERE talker = ? AND createTime BETWEEN ? AND ?
         """.trimIndent()
         return executeQuery(sql, arrayOf(convId, startTime, endTime))
-            .firstOrNull()?.long("cnt") ?: 0
+            .firstOrNull()?.long("cnt")?.toInt() ?: 0
     }
 
     /**
