@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -309,6 +310,43 @@ private fun LengthBars(stats: GroupStats) {
         LabeledCount(R.string.ui_group_stat_length_verbose, stats.lengthDist[3], BarPurple),
     )
     LabeledBars(items, showDot = false)
+}
+
+/** 全天活跃频次：24 小时柱状图 */
+@Composable
+private fun HourlyBars(stats: GroupStats) {
+    val maxCount = stats.hourly.maxOrNull() ?: 0
+    val barColor = MaterialTheme.colorScheme.primary
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            stats.hourly.forEachIndexed { hour, count ->
+                val fraction = if (maxCount > 0) count.toFloat() / maxCount else 0f
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(fraction.coerceIn(0.02f, 1f))
+                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                        .background(barColor),
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            listOf("0", "6", "12", "18", "24").forEach { h ->
+                Text(h, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
 }
 
 /** 内容载体偏好：按设计图 8 类展示 */
