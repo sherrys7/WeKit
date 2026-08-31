@@ -312,6 +312,8 @@ Prefer these over raw Compose controls:
 - 状态栏改为不沉浸（最终方案）：`showComposeDialog` fullScreen 分支移除 edge-to-edge（decorFits 恢复默认 true，内容从状态栏下方开始），状态栏/导航栏着色为页面背景色——`GroupSummaryDialog` 内用 `SideEffect` 将 `MaterialTheme.colorScheme.surface.toArgb()` 回写到 `DialogWindowProvider.window`，视觉上背景延伸到系统栏而内容不延伸；fullScreen 分支首帧先按深浅色给近似底色（dark=0xFF1C1B1F / light=WHITE）避免闪出宿主界面；仅群聊分析使用 fullScreen=true，其他弹窗不受影响
 - 群聊分析默认主题重写：`buildAnalysisPrompt` 深度分析分支改为「联想标题 + 内容概览 + 灵活模块」（主要内容/重点话题/整体氛围/有趣亮点/总结），模块标题与数量（4~6）由模型按聊天内容灵活组织；去掉旧 5 模块（话题总结/情绪评估/关键信息/人物倾向/回复方案）与【】固定格式
 - 群聊分析全屏切换 ComponentActivity：新增 `GroupSummaryActivity`（`ComponentActivity` + `@Keep`，经 ActivityProxy 借壳在宿主进程运行，数据库 API 可用）；`showGroupSummaryDialog` 改为 `startActivity`（`FLAG_ACTIVITY_NEW_TASK` + talker extra）；`GroupSummaryDialog` 改 internal、复用为先例 `ReadReceiptsSettingsActivity` 的 `WeKitLocaleProvider(InjectedHost)` + `ModuleTheme` 模式；onCreate 配置 window（DRAWS_SYSTEM_BAR_BACKGROUNDS、清 TRANSLUCENT、`SOFT_INPUT_ADJUST_RESIZE`、`isStatusBarContrastEnforced=false`、图标明暗随深浅色）；`SideEffect` 将 `surface.toArgb()` 回写 statusBar/navigationBarColor（背景视觉延伸、内容不延伸）；移除 GroupSummaryDialog 内 DialogWindowProvider 回写死代码；manifest 注册（非 exported，`Theme.Material3.DynamicColors.DayNight.NoActionBar`）；`showComposeDialog` 的 fullScreen 分支保留但已无调用方
+- 群聊分析默认主题精简：`buildAnalysisPrompt` else 分支 systemPrompt 整段替换为用户提供的单句提示词（「你是一个微信聊天分析助手……语言幽默生动、排版清晰、记录较少时简短回复」）；userPrompt 仅保留统计数据+聊天记录片段，去掉「请进行深度分析」结尾行
+- 编译修复：bd073e7b 因误删 GroupChatSummary.kt 的 `Color` import（时段 chips 的 `Color.Transparent` 在用）导致 build 失败，df2f3c74 补回
 
 ### In Progress
 - (none)
