@@ -1931,6 +1931,10 @@
     <string name="ui_group_ai_settings_api_key">API Key (Bearer Token)</string>
     <string name="ui_group_ai_settings_api_key_hint">Bearer token for authentication</string>
     <string name="ui_group_ai_settings_model_id">Model Name</string>
+    <string name="ui_group_capacity_sampling_title">Model Capacity & Sampling</string>
+    <string name="ui_group_extract_limit">Message Extract Limit</string>
+    <string name="ui_group_extract_limit_tip">Set to 0 to auto-compute based on model capacity (about 3000). When the messages in the period exceed the limit, only the latest messages within the limit are used.</string>
+    <string name="ui_group_extract_auto">Auto</string>
     <string name="ui_group_generate_start">Start Generation</string>
     <string name="ui_group_copy_text">Copy Text</string>
     <string name="ui_group_send_text">Send Text</string>

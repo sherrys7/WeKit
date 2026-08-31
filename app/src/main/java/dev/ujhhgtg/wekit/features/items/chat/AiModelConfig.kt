@@ -17,6 +17,12 @@ internal object AiModelConfig {
     var apiKey by WePrefs.prefOption("ai_reply_api_key", "")
     var modelId by WePrefs.prefOption("ai_reply_model_id", "")
 
+    /**
+     * AI 分析提取消息数量上限；0 表示自动（按模型容量估算），否则取最近 N 条。
+     * 上限会同时作用于默认主题与自定义主题的聊天片段。
+     */
+    var extractLimit by WePrefs.prefOption("ai_reply_extract_limit", 0)
+
     /** 完整请求前缀 = baseUrl + apiPath；apiPath 可为前缀（/v1）或完整端点路径（/v1/chat/completions） */
     fun resolvedBaseUrl(): String {
         var base = baseUrl.trim().trimEnd('/')

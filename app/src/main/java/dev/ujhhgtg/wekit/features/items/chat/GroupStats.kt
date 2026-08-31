@@ -59,6 +59,7 @@ internal enum class ModelCapacity(val tokens: Long, val label: String) {
     K256(256 * 1024L, "256K"),
     K512(512 * 1024L, "512K"),
     M1(1024 * 1024L, "1M"),
+    M2(2048 * 1024L, "2M"),
 }
 
 /** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
@@ -146,10 +147,16 @@ private val speechlessRegex = Regex("。{2,}|…+|无语|服了|醉了")
 
 private val laughRegex = Regex("[哈哈呵呵嘿嘿😂🤣]")
 
+private val xmlTagRegex = Regex("<[^>]*>")
+private val htmlEntityRegex = Regex("&(?:lt|gt|amp|quot|apos|nbsp|#\\d+);?", RegexOption.IGNORE_CASE)
+
 internal fun extractWords(text: String): List<String> {
-    return text.split(Regex("[\\s,，。！？、；：\"\"''（（））《》【】\\[\\]\\{\\}「」『』\\.!?;:，。！？、；：\n\r\t]+"))
-        .map { it.trim() }
-        .filter { it.isNotBlank() && it.length >= 2 }
+    val cleaned = text
+        .replace(xmlTagRegex, " ")
+        .replace(htmlEntityRegex, " ")
+    return cleaned.split(Regex("[\\s,，。！？、；：\"\"''（（））《》【】\\[\\]\\{\\}「」『』\\.!?;:，。！？、；：\n\r\t]+"))
+        .map { it.filter { c -> c.isLetterOrDigit() } }
+        .filter { it.length >= 2 }
 }
 
 private val commonStopWords = setOf(
@@ -162,6 +169,7 @@ private val commonStopWords = setOf(
     "时候", "现在", "已经", "可能", "应该", "没有", "觉得", "知道", "看到",
     "过来", "出来", "起来", "进去", "回到", "拿到", "想到", "我们", "你们",
     "他们", "大家", "东西", "意思", "时间", "朋友", "回复", "收到", "明白",
+    "amp", "lt", "gt", "quot", "apos", "nbsp", "xml", "msg", "appid", "version",
 )
 
 private fun <K> MutableMap<K, Int>.mergeCount(key: K, value: Int, op: (Int, Int) -> Int) {

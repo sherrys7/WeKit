@@ -97,13 +97,13 @@ private fun CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int, modifie
 /** 「深度图表」统计模块组：7 个可折叠可视化卡（对应设计图，跳过无内容的活跃度检测） */
 @Composable
 internal fun GroupStatsCharts(stats: GroupStats) {
-    var rankCollapsed by remember { mutableStateOf(false) }
-    var wordsCollapsed by remember { mutableStateOf(false) }
-    var routineCollapsed by remember { mutableStateOf(false) }
-    var emotionCollapsed by remember { mutableStateOf(false) }
-    var lengthCollapsed by remember { mutableStateOf(false) }
-    var hourlyCollapsed by remember { mutableStateOf(false) }
-    var typeCollapsed by remember { mutableStateOf(false) }
+    var rankCollapsed by remember { mutableStateOf(true) }
+    var wordsCollapsed by remember { mutableStateOf(true) }
+    var routineCollapsed by remember { mutableStateOf(true) }
+    var emotionCollapsed by remember { mutableStateOf(true) }
+    var lengthCollapsed by remember { mutableStateOf(true) }
+    var hourlyCollapsed by remember { mutableStateOf(true) }
+    var typeCollapsed by remember { mutableStateOf(true) }
 
     StatCard(MaterialSymbols.Outlined.Format_list_numbered, R.string.ui_group_stat_rank_title, rankCollapsed, { rankCollapsed = !rankCollapsed }) {
         RankList(stats)

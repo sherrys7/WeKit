@@ -32,11 +32,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -75,6 +77,8 @@ import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.IconButton
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.SegmentedColumn
+import dev.ujhhgtg.wekit.ui.content.m3.TextFieldDialogWidget
 import dev.ujhhgtg.wekit.ui.utils.VectorPathDrawable
 import dev.ujhhgtg.wekit.utils.HostInfo
 import dev.ujhhgtg.wekit.utils.android.copyToClipboard
@@ -88,6 +92,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.io.path.absolutePathString
+import kotlin.math.roundToInt
 
 object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItemsProvider {
     override val technicalId = "群聊统计报告"
@@ -137,7 +142,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var modelCapacity by remember { mutableStateOf(ModelCapacity.K256) }
         var showAiSettings by remember { mutableStateOf(false) }
         var collapsed by remember { mutableStateOf(false) }
-        var showAdvanced by remember { mutableStateOf(false) }
+        var showCapacityDialog by remember { mutableStateOf(false) }
         var generatedRangeRes by remember { mutableStateOf<Int?>(null) }
         var generatedAt by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
@@ -160,6 +165,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     timeRange,
                     customTopic = customTopic.trim().takeIf { it.isNotEmpty() },
                     modelCapacity = modelCapacity,
+                    extractLimit = AiModelConfig.extractLimit,
                     onDelta = { delta ->
                         withContext(Dispatchers.Main) { report = report.orEmpty() + delta }
                     },
@@ -291,7 +297,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
                             )
-                            IconButton(onClick = { showAdvanced = !showAdvanced }, enabled = !isLoading) {
+                            IconButton(onClick = { showCapacityDialog = true }, enabled = !isLoading) {
                                 Icon(
                                     MaterialSymbols.Outlined.Tune,
                                     contentDescription = null,
@@ -333,35 +339,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                             .clickable(enabled = !isLoading) { timeRange = range }
                                             .padding(horizontal = 14.dp, vertical = 8.dp),
                                     )
-                                }
-                            }
-                        }
-
-                        // 模型容量（筛选展开）
-                        if (showAdvanced) {
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                text = stringResource(R.string.ui_group_model_capacity),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ModelCapacity.entries.forEach { capacity ->
-                                    val selected = modelCapacity == capacity
-                                    Surface(
-                                        shape = RoundedCornerShape(14.dp),
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    ) {
-                                        Text(
-                                            text = capacity.label,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier
-                                                .clickable(enabled = !isLoading) { modelCapacity = capacity }
-                                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -534,6 +511,11 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         if (showAiSettings) {
             AiSettingsDialog(onDismiss = { showAiSettings = false })
         }
+        if (showCapacityDialog) {
+            ModelCapacitySamplingDialog(
+                onDismiss = { showCapacityDialog = false },
+            )
+        }
     }
 
     @Composable
@@ -547,10 +529,11 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
     @Composable
     private fun AiSettingsDialog(onDismiss: () -> Unit) {
-        var baseUrl by remember { mutableStateOf(AiModelConfig.baseUrl) }
-        var apiPath by remember { mutableStateOf(AiModelConfig.apiPath) }
-        var apiKey by remember { mutableStateOf(AiModelConfig.apiKey) }
-        var modelId by remember { mutableStateOf(AiModelConfig.modelId) }
+        fun saveSetting(save: () -> Unit) {
+            AiModelConfig.providerTypeName = ModelProviderType.OPENAI_CHAT_COMPLETION.name
+            save()
+            showToast("已保存 API 配置")
+        }
 
         AlertDialogContent(
             title = {
@@ -570,57 +553,141 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState()),
                 ) {
-                    OutlinedTextField(
-                        value = baseUrl,
-                        onValueChange = { baseUrl = it },
-                        label = { Text(stringResource(R.string.ui_group_ai_settings_base_url)) },
-                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_base_url_hint)) },
-                        singleLine = true,
+                    SegmentedColumn {
+                        item {
+                            TextFieldDialogWidget(
+                                title = stringResource(R.string.ui_group_ai_settings_base_url),
+                                value = AiModelConfig.baseUrl,
+                                onValueChange = { saveSetting { AiModelConfig.baseUrl = it.trim() } },
+                                dialogTitle = stringResource(R.string.ui_group_ai_settings_base_url),
+                                confirmLabel = stringResource(R.string.dialog_confirm),
+                                dismissLabel = stringResource(R.string.dialog_cancel),
+                                valueHint = stringResource(R.string.ui_group_ai_settings_base_url_hint),
+                            )
+                        }
+                        item {
+                            TextFieldDialogWidget(
+                                title = stringResource(R.string.ui_group_ai_settings_path),
+                                value = AiModelConfig.apiPath,
+                                onValueChange = { saveSetting { AiModelConfig.apiPath = it.trim() } },
+                                dialogTitle = stringResource(R.string.ui_group_ai_settings_path),
+                                confirmLabel = stringResource(R.string.dialog_confirm),
+                                dismissLabel = stringResource(R.string.dialog_cancel),
+                                valueHint = stringResource(R.string.ui_group_ai_settings_path_hint),
+                            )
+                        }
+                        item {
+                            TextFieldDialogWidget(
+                                title = stringResource(R.string.ui_group_ai_settings_api_key),
+                                value = AiModelConfig.apiKey,
+                                onValueChange = { saveSetting { AiModelConfig.apiKey = it.trim() } },
+                                dialogTitle = stringResource(R.string.ui_group_ai_settings_api_key),
+                                confirmLabel = stringResource(R.string.dialog_confirm),
+                                dismissLabel = stringResource(R.string.dialog_cancel),
+                                valueHint = stringResource(R.string.ui_group_ai_settings_api_key_hint),
+                                password = true,
+                            )
+                        }
+                        item {
+                            TextFieldDialogWidget(
+                                title = stringResource(R.string.ui_group_ai_settings_model_id),
+                                value = AiModelConfig.modelId,
+                                onValueChange = { saveSetting { AiModelConfig.modelId = it.trim() } },
+                                dialogTitle = stringResource(R.string.ui_group_ai_settings_model_id),
+                                confirmLabel = stringResource(R.string.dialog_confirm),
+                                dismissLabel = stringResource(R.string.dialog_cancel),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = null,
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.dialog_close))
+                }
+            },
+        )
+    }
+
+    @Composable
+    private fun ModelCapacitySamplingDialog(onDismiss: () -> Unit) {
+        var draftCapacity by remember { mutableStateOf(modelCapacity) }
+        var draftLimit by remember { mutableIntStateOf(AiModelConfig.extractLimit) }
+
+        AlertDialogContent(
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_group_capacity_sampling_title),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = stringResource(R.string.ui_group_model_capacity),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ModelCapacity.entries.forEach { capacity ->
+                            val selected = draftCapacity == capacity
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                            ) {
+                                Text(
+                                    text = capacity.label,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .clickable { draftCapacity = capacity }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.ui_group_extract_limit),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = if (draftLimit == 0) {
+                                stringResource(R.string.ui_group_extract_auto)
+                            } else {
+                                "${draftLimit}"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Slider(
+                        value = draftLimit.toFloat(),
+                        onValueChange = { draftLimit = it.roundToInt() },
+                        valueRange = 0f..1000f,
                         modifier = Modifier.fillMaxWidth(),
                     )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = apiPath,
-                        onValueChange = { apiPath = it },
-                        label = { Text(stringResource(R.string.ui_group_ai_settings_path)) },
-                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_path_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = { Text(stringResource(R.string.ui_group_ai_settings_api_key)) },
-                        placeholder = { Text(stringResource(R.string.ui_group_ai_settings_api_key_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    OutlinedTextField(
-                        value = modelId,
-                        onValueChange = { modelId = it },
-                        label = { Text(stringResource(R.string.ui_group_ai_settings_model_id)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                    Text(
+                        text = stringResource(R.string.ui_group_extract_limit_tip),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        AiModelConfig.providerTypeName = ModelProviderType.OPENAI_CHAT_COMPLETION.name
-                        AiModelConfig.baseUrl = baseUrl.trim()
-                        AiModelConfig.apiPath = apiPath.trim()
-                        AiModelConfig.apiKey = apiKey.trim()
-                        AiModelConfig.modelId = modelId.trim()
-                        showToast("已保存 API 配置")
+                        modelCapacity = draftCapacity
+                        AiModelConfig.extractLimit = draftLimit
+                        showToast("已保存")
                         onDismiss()
                     },
                 ) {
@@ -640,6 +707,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         range: GroupTimeRange,
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
+        extractLimit: Int = 0,
         onDelta: suspend (String) -> Unit = {},
         precomputedStats: GroupStats? = null,
     ): Result<String> = withContext(Dispatchers.IO) {
@@ -662,7 +730,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
             // 配置了 AI 模型时，用 AI 生成智能群聊分析
             if (AiModelConfig.isConfigured()) {
-                aiGenerateReport(messages, membersMap, talker, statsReport, customTopic, modelCapacity, onDelta)
+                aiGenerateReport(messages, membersMap, talker, statsReport, customTopic, modelCapacity, extractLimit, onDelta)
             } else {
                 throw IllegalStateException("未配置 AI 模型，请先点击右上角设置配置 API")
             }
@@ -720,6 +788,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         statsReport: String,
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
+        extractLimit: Int = 0,
         onDelta: suspend (String) -> Unit = {},
     ): String {
         check(AiModelConfig.resolvedBaseUrl().isNotBlank()) { "未配置 API 地址" }
@@ -743,24 +812,35 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         )
         val client = ModelProviderManager.clientFor(provider)
 
-        // 聊天片段：自定义主题时按容量给更多最近消息（估算每 token 约 1.5 字符），否则取最近 30 条
-        val recentLines = if (customTopic != null) {
-            val budgetChars = modelCapacity.tokens * 3 / 2
-            val builder = StringBuilder()
-            var used = 0
-            for (msg in messages.asReversed()) {
-                val line = "${resolveSenderName(extractSenderId(msg, membersMap), membersMap)}: ${extractTextContent(msg, membersMap)}"
-                used += line.length
-                if (used > budgetChars) break
-                builder.insert(0, line + "\n")
-            }
-            builder.toString().trimEnd('\n')
-        } else {
-            messages.takeLast(30).joinToString("\n") { msg ->
+        // 聊天片段：extractLimit > 0 时取最近 N 条；否则按容量自动估算（默认主题约 3000 条，自定义主题按 token 预算）
+        val recentLines = if (extractLimit > 0) {
+            messages.takeLast(extractLimit).joinToString("\n") { msg ->
                 val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
                 val text = extractTextContent(msg, membersMap)
                 "$sender: $text"
             }
+        } else {
+            val autoLimit = if (customTopic != null) {
+                // 自定义主题：按 token 预算估算字符数，从最新往回填
+                val budgetChars = modelCapacity.tokens * 3 / 2
+                val builder = StringBuilder()
+                var used = 0
+                for (msg in messages.asReversed()) {
+                    val line = "${resolveSenderName(extractSenderId(msg, membersMap), membersMap)}: ${extractTextContent(msg, membersMap)}"
+                    used += line.length
+                    if (used > budgetChars) break
+                    builder.insert(0, line + "\n")
+                }
+                builder.toString().trimEnd('\n')
+            } else {
+                // 默认主题：自动取最近约 3000 条，避免超出大部分模型上下文
+                messages.takeLast(3000).joinToString("\n") { msg ->
+                    val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
+                    val text = extractTextContent(msg, membersMap)
+                    "$sender: $text"
+                }
+            }
+            autoLimit
         }
 
         val (systemPrompt, userPrompt) = buildAnalysisPrompt(statsReport, recentLines, customTopic)
