@@ -314,6 +314,7 @@ Prefer these over raw Compose controls:
 - 群聊分析全屏切换 ComponentActivity：新增 `GroupSummaryActivity`（`ComponentActivity` + `@Keep`，经 ActivityProxy 借壳在宿主进程运行，数据库 API 可用）；`showGroupSummaryDialog` 改为 `startActivity`（`FLAG_ACTIVITY_NEW_TASK` + talker extra）；`GroupSummaryDialog` 改 internal、复用为先例 `ReadReceiptsSettingsActivity` 的 `WeKitLocaleProvider(InjectedHost)` + `ModuleTheme` 模式；onCreate 配置 window（DRAWS_SYSTEM_BAR_BACKGROUNDS、清 TRANSLUCENT、`SOFT_INPUT_ADJUST_RESIZE`、`isStatusBarContrastEnforced=false`、图标明暗随深浅色）；`SideEffect` 将 `surface.toArgb()` 回写 statusBar/navigationBarColor（背景视觉延伸、内容不延伸）；移除 GroupSummaryDialog 内 DialogWindowProvider 回写死代码；manifest 注册（非 exported，`Theme.Material3.DynamicColors.DayNight.NoActionBar`）；`showComposeDialog` 的 fullScreen 分支保留但已无调用方
 - 群聊分析默认主题精简：`buildAnalysisPrompt` else 分支 systemPrompt 整段替换为用户提供的单句提示词（「你是一个微信聊天分析助手……语言幽默生动、排版清晰、记录较少时简短回复」）；userPrompt 仅保留统计数据+聊天记录片段，去掉「请进行深度分析」结尾行
 - 编译修复：bd073e7b 因误删 GroupChatSummary.kt 的 `Color` import（时段 chips 的 `Color.Transparent` 在用）导致 build 失败，df2f3c74 补回
+- 清理死代码：depth=0（群聊日报）/depth=1（话题热度统计）提示词分支从未被调用（`generateReport` 硬编码 depth=2），删除两分支及 `buildAnalysisPrompt`/`aiGenerateReport` 的 `depth` 参数；`buildAnalysisPrompt` 现在只有自定义主题/默认两条路径
 
 ### In Progress
 - (none)

@@ -643,7 +643,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
             // 配置了 AI 模型时，用 AI 生成智能群聊分析
             if (AiModelConfig.isConfigured()) {
-                aiGenerateReport(messages, membersMap, talker, statsReport, 2, customTopic, modelCapacity, onDelta)
+                aiGenerateReport(messages, membersMap, talker, statsReport, customTopic, modelCapacity, onDelta)
             } else {
                 throw IllegalStateException("未配置 AI 模型，请先点击右上角设置配置 API")
             }
@@ -651,16 +651,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     }
 
     private fun buildAnalysisPrompt(
-        depth: Int,
         statsReport: String,
         recentLines: String,
         customTopic: String? = null,
     ): Pair<String, String> {
-        val systemPrompt: String
-        val userPrompt: String
-
         if (customTopic != null) {
-            systemPrompt = """你是微信群聊深度分析引擎，围绕用户指定主题，从群聊历史消息中提炼相关内容。
+            val systemPrompt = """你是微信群聊深度分析引擎，围绕用户指定主题，从群聊历史消息中提炼相关内容。
 围绕主题：【$customTopic】
 输出结构：
 【主题概览】概述群聊中与该主题相关的整体情况。
@@ -674,7 +670,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 2. 禁止脑补编造聊天中不存在的信息，信息不足时如实说明。
 3. 使用 Markdown 排版输出，结构清晰、层级分明，便于手机阅读与生成长图。
 4. 适度使用标题、列表、引用、加粗等 Markdown 语法，不滥用复杂嵌套。"""
-            userPrompt = buildString {
+            val userPrompt = buildString {
                 appendLine("群聊统计数据：")
                 appendLine(statsReport)
                 appendLine()
@@ -686,79 +682,15 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             return Pair(systemPrompt, userPrompt)
         }
 
-        when (depth) {
-            0 -> {
-                // 群聊日报总结
-                systemPrompt = """你是微信群定时总结助手。
-读取最近一段群聊历史消息，生成一份简短群聊日报总结。
-输出内容分为：
-【今日话题】简要概括大家讨论了哪几件事
-【重要消息】提取通知、邀约、时间、活动、任务、求助等关键信息，无关闲聊省略
-【氛围小结】简单描述今天群内聊天氛围
-【闲聊亮点】有意思的段子、玩笑、梗（没有就写无）
-
-规则：
-1、文字精简，手机阅读友好，不要大段长篇
-2、没有重要消息如实写，不要凭空编造内容
-3、可用 Markdown 标题、列表等简单语法排版，层次清晰
-4、语气自然口语化，适合直接发到群内"""
-                userPrompt = buildString {
-                    appendLine("群聊统计数据：")
-                    appendLine(statsReport)
-                    appendLine()
-                    appendLine("最近聊天记录片段：")
-                    appendLine(recentLines)
-                    appendLine()
-                    appendLine("请生成日报总结。")
-                }
-            }
-            1 -> {
-                // 话题热度统计分析
-                systemPrompt = """你是群聊话题热度统计分析助手。
-基于提供的群聊历史聊天记录，完成热度统计分析。
-输出结构：
-【热门话题排行】
-按讨论热度从高到低列出前3-5个话题，简单说明该话题大家讨论的内容。
-
-【热度说明】
-高热度：多人连续发言、来回讨论
-中等热度：少数几个人闲聊
-低热度：只有一句话、没人接话
-
-【活跃人员】
-列出本次聊天里面发言比较多、参与讨论较多的人，不需要主观评价，只做客观统计。
-
-【风险提醒】
-识别是否存在争吵、吐槽、纠纷、敏感言论、广告引流，没有则填无。
-
-输出约束：
-1、输出简洁，拒绝大段文字，适配手机弹窗查看。
-2、不编造聊天记录不存在的事件。
-3、可用 Markdown 标题、列表、加粗等简单语法排版，层级清晰。
-4、结果客观，只做热度统计，不做价值评判。"""
-                userPrompt = buildString {
-                    appendLine("群聊统计数据：")
-                    appendLine(statsReport)
-                    appendLine()
-                    appendLine("最近聊天记录片段：")
-                    appendLine(recentLines)
-                    appendLine()
-                    appendLine("请进行话题热度统计分析。")
-                }
-            }
-            else -> {
-                // 默认深度分析
-                systemPrompt = """你是一个微信聊天分析助手。请根据以下聊天记录，总结出这段时间内大家聊了哪些主要内容，重点话题，整体氛围如何，并提取一些有趣的点。语言请幽默生动，排版清晰。如果记录较少请简短回复。"""
-                userPrompt = buildString {
-                    appendLine("群聊统计数据：")
-                    appendLine(statsReport)
-                    appendLine()
-                    appendLine("聊天记录片段：")
-                    appendLine(recentLines)
-                }
-            }
+        // 默认深度分析
+        val systemPrompt = """你是一个微信聊天分析助手。请根据以下聊天记录，总结出这段时间内大家聊了哪些主要内容，重点话题，整体氛围如何，并提取一些有趣的点。语言请幽默生动，排版清晰。如果记录较少请简短回复。"""
+        val userPrompt = buildString {
+            appendLine("群聊统计数据：")
+            appendLine(statsReport)
+            appendLine()
+            appendLine("聊天记录片段：")
+            appendLine(recentLines)
         }
-
         return Pair(systemPrompt, userPrompt)
     }
 
@@ -767,7 +699,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         membersMap: Map<String, String>,
         talker: String,
         statsReport: String,
-        depth: Int = 2,
         customTopic: String? = null,
         modelCapacity: ModelCapacity = ModelCapacity.K256,
         onDelta: suspend (String) -> Unit = {},
@@ -813,7 +744,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             }
         }
 
-        val (systemPrompt, userPrompt) = buildAnalysisPrompt(depth, statsReport, recentLines, customTopic)
+        val (systemPrompt, userPrompt) = buildAnalysisPrompt(statsReport, recentLines, customTopic)
 
         val messages2 = listOf(
             LlmMessage(role = LlmRole.SYSTEM, content = systemPrompt),
