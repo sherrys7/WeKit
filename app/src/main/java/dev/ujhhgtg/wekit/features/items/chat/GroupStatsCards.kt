@@ -1,13 +1,17 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.R
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -36,7 +40,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
 import com.composables.icons.materialsymbols.outlined.Chat
@@ -98,7 +101,6 @@ private fun CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int, modifie
 @Composable
 internal fun GroupStatsCharts(stats: GroupStats) {
     var rankCollapsed by remember { mutableStateOf(true) }
-    var wordsCollapsed by remember { mutableStateOf(true) }
     var routineCollapsed by remember { mutableStateOf(true) }
     var emotionCollapsed by remember { mutableStateOf(true) }
     var lengthCollapsed by remember { mutableStateOf(true) }
@@ -107,10 +109,6 @@ internal fun GroupStatsCharts(stats: GroupStats) {
 
     StatCard(MaterialSymbols.Outlined.Format_list_numbered, R.string.ui_group_stat_rank_title, rankCollapsed, { rankCollapsed = !rankCollapsed }) {
         RankList(stats)
-    }
-    Spacer(Modifier.height(12.dp))
-    StatCard(MaterialSymbols.Outlined.Auto_awesome, R.string.ui_group_stat_words_title, wordsCollapsed, { wordsCollapsed = !wordsCollapsed }) {
-        WordCloud(stats)
     }
     Spacer(Modifier.height(12.dp))
     StatCard(MaterialSymbols.Outlined.Schedule, R.string.ui_group_stat_routine_title, routineCollapsed, { routineCollapsed = !routineCollapsed }) {
@@ -172,7 +170,12 @@ private fun StatCard(
                 )
             }
         }
-        if (!collapsed) {
+        AnimatedVisibility(
+            visible = !collapsed,
+            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(200)),
+            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(150)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Spacer(Modifier.height(12.dp))
             content()
         }
@@ -207,37 +210,6 @@ private fun RankList(stats: GroupStats) {
                 fraction = if (maxCount > 0) sender.count.toFloat() / maxCount else 0f,
                 color = MaterialTheme.colorScheme.primary,
             )
-        }
-    }
-}
-
-/** 高频语义特征：词云 chips，字号随词频权重变化 */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun WordCloud(stats: GroupStats) {
-    val maxCount = stats.words.maxOfOrNull { it.second } ?: 0
-    val chipColors = listOf(
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-    )
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        stats.words.forEachIndexed { index, (word, count) ->
-            val weight = if (maxCount > 0) count.toFloat() / maxCount else 0f
-            Surface(shape = RoundedCornerShape(12.dp), color = chipColors[index % chipColors.size]) {
-                Text(
-                    text = word,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontSize = (13 + weight * 5).sp,
-                    fontWeight = if (weight > 0.66f) FontWeight.Bold else FontWeight.Normal,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
         }
     }
 }

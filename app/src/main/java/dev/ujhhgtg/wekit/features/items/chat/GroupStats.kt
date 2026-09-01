@@ -29,7 +29,6 @@ internal data class GroupStats(
     val speakerCount: Int,
     val textCount: Int,
     val senders: List<SenderStat>,
-    val words: List<Pair<String, Int>>,
     val hourly: List<Int>,
     val codeCounts: Map<Int, Int>,
     val laughCount: Int,
@@ -147,31 +146,6 @@ private val speechlessRegex = Regex("。{2,}|…+|无语|服了|醉了")
 
 private val laughRegex = Regex("[哈哈呵呵嘿嘿😂🤣]")
 
-private val xmlTagRegex = Regex("<[^>]*>")
-private val htmlEntityRegex = Regex("&(?:lt|gt|amp|quot|apos|nbsp|#\\d+);?", RegexOption.IGNORE_CASE)
-
-internal fun extractWords(text: String): List<String> {
-    val cleaned = text
-        .replace(xmlTagRegex, " ")
-        .replace(htmlEntityRegex, " ")
-    return cleaned.split(Regex("[\\s,，。！？、；：\"\"''（（））《》【】\\[\\]\\{\\}「」『』\\.!?;:，。！？、；：\n\r\t]+"))
-        .map { it.filter { c -> c.isLetterOrDigit() } }
-        .filter { it.length >= 2 }
-}
-
-private val commonStopWords = setOf(
-    "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一",
-    "一个", "上", "也", "很", "到", "说", "要", "去", "你", "会", "着",
-    "没有", "看", "好", "自己", "这", "他", "她", "它", "们", "那", "些",
-    "什么", "怎么", "因为", "所以", "但是", "如果", "虽然", "可以", "这个",
-    "那个", "吧", "吗", "啊", "嗯", "哦", "哈", "呀", "呢", "啦", "么",
-    "还是", "就是", "不是", "只是", "但是", "而且", "或者", "然后", "以后",
-    "时候", "现在", "已经", "可能", "应该", "没有", "觉得", "知道", "看到",
-    "过来", "出来", "起来", "进去", "回到", "拿到", "想到", "我们", "你们",
-    "他们", "大家", "东西", "意思", "时间", "朋友", "回复", "收到", "明白",
-    "amp", "lt", "gt", "quot", "apos", "nbsp", "xml", "msg", "appid", "version",
-)
-
 private fun <K> MutableMap<K, Int>.mergeCount(key: K, value: Int, op: (Int, Int) -> Int) {
     this[key] = op(this.getOrDefault(key, 0), value)
 }
@@ -197,7 +171,6 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
     val codeCounts = mutableMapOf<Int, Int>()
     val senderCounts = mutableMapOf<String, MutableList<WeMessage>>()
     val hourly = MutableList(24) { 0 }
-    val allTextWords = mutableListOf<String>()
     var laughCount = 0
     var questionCount = 0
     var exclamationCount = 0
@@ -219,7 +192,6 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
         val type = MessageType.fromCode(msg.typeCode)
         if (type?.isText == true) {
             val textContent = extractTextContent(msg, membersMap)
-            allTextWords.addAll(extractWords(textContent))
 
             val textLen = textContent.length
             when {
@@ -252,16 +224,6 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
             SenderStat(resolveSenderName(senderId, membersMap), msgs.size, mainType)
         }
 
-    val words = allTextWords
-        .groupBy { it }
-        .mapValues { it.value.size }
-        .filter { it.key.length >= 2 || it.key.all { c -> c.isLetterOrDigit() } }
-        .filterNot { it.key in commonStopWords }
-        .entries
-        .sortedByDescending { it.value }
-        .take(10)
-        .map { it.key to it.value }
-
     return GroupStats(
         periodStart = messages.firstOrNull()?.createTime ?: 0,
         periodEnd = messages.lastOrNull()?.createTime ?: 0,
@@ -269,7 +231,6 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
         speakerCount = senderCounts.size,
         textCount = textCount,
         senders = senders,
-        words = words,
         hourly = hourly,
         codeCounts = codeCounts,
         laughCount = laughCount,
@@ -300,14 +261,6 @@ internal fun renderStatsReport(stats: GroupStats): String {
     }
     val periodOf = { from: Int, to: Int -> stats.hourly.subList(from, to + 1).sum() }
     sb.appendLine("活跃时段 凌晨(0-5):${periodOf(0, 5)}条 上午(6-11):${periodOf(6, 11)}条 下午(12-17):${periodOf(12, 17)}条 夜晚(18-23):${periodOf(18, 23)}条")
-    if (stats.words.isNotEmpty()) {
-        sb.append("高频词 ")
-        stats.words.forEachIndexed { index, (word, count) ->
-            sb.append("$word:${count}次")
-            if (index < stats.words.size - 1) sb.append(" ")
-        }
-        sb.appendLine()
-    }
     sb.appendLine("情绪指纹")
     val textMsgCount = stats.textCount.coerceAtLeast(1)
     fun pct(count: Int) = "%.1f".format(count.toDouble() / textMsgCount * 100)
@@ -319,7 +272,6 @@ internal fun renderStatsReport(stats: GroupStats): String {
         sb.appendLine("·${sender.name}:${sender.count}条($percentage%),主发${sender.mainType}")
     }
     sb.appendLine()
-    sb.appendLine("Hchat 群聊统计·${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())}")
     return sb.toString()
 }
 

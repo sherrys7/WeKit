@@ -1879,7 +1879,7 @@
     <string name="ui_group_ai_settings_model_id">模型名稱</string>
     <string name="ui_group_capacity_sampling_title">模型容量與採樣</string>
     <string name="ui_group_extract_limit">提取訊息數量上限</string>
-    <string name="ui_group_extract_limit_tip">設為 0 時根據模型容量自動計算（約 3000 條）。當指定時段訊息數超出上限時，僅使用上限內的最近訊息。</string>
+    <string name="ui_group_extract_limit_tip">設為 0 時根據模型容量自動計算（約 1000 條）。當指定時段訊息數超出上限時，僅使用上限內的最近訊息。</string>
     <string name="ui_group_extract_auto">自動</string>
     <string name="ui_group_generate_start">開始生成</string>
     <string name="ui_group_copy_text">複製文字</string>
@@ -1890,7 +1890,6 @@
     <string name="ui_group_stat_core_history_total">歷史總訊息</string>
     <string name="ui_group_deep_charts">深度圖表</string>
     <string name="ui_group_stat_rank_title">活躍發言排行</string>
-    <string name="ui_group_stat_words_title">高頻語義特徵</string>
     <string name="ui_group_stat_routine_title">聊天作息圖鑑</string>
     <string name="ui_group_stat_routine_owl">熬夜修仙</string>
     <string name="ui_group_stat_routine_early">早起鳥兒</string>

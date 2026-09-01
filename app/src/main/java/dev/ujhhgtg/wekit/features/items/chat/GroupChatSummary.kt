@@ -4,10 +4,12 @@ import dev.ujhhgtg.wekit.R
 import android.view.View
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -294,7 +296,12 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         }
                     }
 
-                    if (!collapsed) {
+                    AnimatedVisibility(
+                        visible = !collapsed,
+                        enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(200)),
+                        exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(150)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
                         // 选择总结时段
@@ -720,7 +727,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     Slider(
                         value = draftLimit.toFloat(),
                         onValueChange = { draftLimit = it.roundToInt() },
-                        valueRange = 0f..1000f,
+                        valueRange = 0f..3000f,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -881,8 +888,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                 }
                 builder.toString().trimEnd('\n')
             } else {
-                // 默认主题：自动取最近约 3000 条，避免超出大部分模型上下文
-                messages.takeLast(3000).joinToString("\n") { msg ->
+                // 默认主题：自动取最近约 1000 条，避免超出大部分模型上下文
+                messages.takeLast(1000).joinToString("\n") { msg ->
                     val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
                     val text = extractTextContent(msg, membersMap)
                     "$sender: $text"
