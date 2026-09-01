@@ -2,11 +2,10 @@ package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -144,6 +143,7 @@ private fun StatCard(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+            .animateContentSize(animationSpec = tween(220))
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -172,8 +172,8 @@ private fun StatCard(
         }
         AnimatedVisibility(
             visible = !collapsed,
-            enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(200)),
-            exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(150)),
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(150)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Spacer(Modifier.height(12.dp))

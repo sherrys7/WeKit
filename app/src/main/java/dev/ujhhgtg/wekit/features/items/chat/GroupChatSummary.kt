@@ -3,13 +3,12 @@ import dev.ujhhgtg.wekit.R
 
 import android.view.View
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -263,6 +262,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                             RoundedCornerShape(24.dp),
                         )
+                        .animateContentSize(animationSpec = tween(220))
                         .padding(16.dp),
                 ) {
                     // 卡片头部：魔法棒图标 + 标题 + 折叠箭头
@@ -298,8 +298,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                     AnimatedVisibility(
                         visible = !collapsed,
-                        enter = expandVertically(animationSpec = tween(220)) + fadeIn(animationSpec = tween(200)),
-                        exit = shrinkVertically(animationSpec = tween(180)) + fadeOut(animationSpec = tween(150)),
+                        enter = fadeIn(animationSpec = tween(200)),
+                        exit = fadeOut(animationSpec = tween(150)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
