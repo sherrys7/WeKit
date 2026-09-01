@@ -1882,7 +1882,6 @@
     <string name="ui_group_extract_limit_tip">設為 0 時根據模型容量自動計算（約 1000 條）。當指定時段訊息數超出上限時，僅使用上限內的最近訊息。</string>
     <string name="ui_group_extract_auto">自動</string>
     <string name="ui_group_generate_start">開始生成</string>
-    <string name="ui_group_result_placeholder">點擊上方按鈕，讓 AI 實時串流生成報告</string>
     <string name="ui_group_copy_text">複製文字</string>
     <string name="ui_group_send_text">傳送文字</string>
     <string name="ui_group_stat_core_title">核心指標</string>

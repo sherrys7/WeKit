@@ -3,7 +3,6 @@ import dev.ujhhgtg.wekit.R
 
 import android.view.View
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -55,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
@@ -263,7 +261,6 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                             RoundedCornerShape(24.dp),
                         )
-                        .animateContentSize(animationSpec = tween(220))
                         .padding(16.dp),
                 ) {
                     // 卡片头部：魔法棒图标 + 标题 + 折叠箭头
@@ -297,12 +294,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                         }
                     }
 
-                    AnimatedVisibility(
-                        visible = !collapsed,
-                        enter = fadeIn(animationSpec = tween(200)),
-                        exit = fadeOut(animationSpec = tween(150)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
+                    if (!collapsed) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
                         // 选择总结时段
@@ -333,34 +325,28 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                         Spacer(Modifier.height(4.dp))
 
-                        // 时段标签横向滚动：浅灰容器 + 选中白色胶囊
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
+                        // 时段标签横向滚动
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .horizontalScroll(rememberScrollState())
-                                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                GroupTimeRange.entries.forEach { range ->
-                                    val selected = timeRange == range
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
-                                    ) {
-                                        Text(
-                                            text = stringResource(range.labelRes),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                            modifier = Modifier
-                                                .clickable(enabled = !isLoading) { timeRange = range }
-                                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                                        )
-                                    }
+                            GroupTimeRange.entries.forEach { range ->
+                                val selected = timeRange == range
+                                Surface(
+                                    shape = RoundedCornerShape(18.dp),
+                                    color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent,
+                                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+                                ) {
+                                    Text(
+                                        text = stringResource(range.labelRes),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .clickable(enabled = !isLoading) { timeRange = range }
+                                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                                    )
                                 }
                             }
                         }
@@ -416,7 +402,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             )
                         }
 
-                        if (report != null) {
+                        report?.let { result ->
                             Spacer(Modifier.height(12.dp))
                             val rangeText = generatedRangeRes?.let { stringResource(it) }
                             val timeText = generatedAt
@@ -432,28 +418,10 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                 Spacer(Modifier.height(8.dp))
                             }
                             MarkdownText(
-                                markdown = report!!,
+                                markdown = result,
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                        } else if (!isLoading && errorMessage == null) {
-                            // 结果空态占位卡
-                            Spacer(Modifier.height(12.dp))
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.ui_group_result_placeholder),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 36.dp),
-                                )
-                            }
                         }
                     }
                 }
