@@ -432,7 +432,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                 Spacer(Modifier.height(8.dp))
                             }
                             MarkdownText(
-                                markdown = report,
+                                markdown = report!!,
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.bodySmall,
                             )
