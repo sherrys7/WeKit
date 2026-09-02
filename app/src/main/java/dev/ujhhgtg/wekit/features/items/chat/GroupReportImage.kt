@@ -18,15 +18,21 @@ import java.nio.file.Path
 import kotlin.io.path.div
 
 /**
- * 将群聊分析报告（Markdown 文本）渲染为白底长图并保存。
- * 布局：顶部标题 + 绿色副标题（群名 · 统计周期） + 分隔线 + 正文 + 底部生成时间。
+ * 将群聊分析报告（Markdown 文本）渲染为长图并保存。
+ * 布局：#F4F9F5 底色上绘制圆角 50、2px #D5E7DF 边框的白底卡片，
+ * 卡片内为标题 + 绿色副标题（群名 · 统计周期） + #C1D7CF 横线 + 正文；
+ * 生成时间以灰色小字显示在卡片外、图片底部。高度完全由内容决定，无固定留白。
  * [title]/[subtitle]/[footer] 均为已按当前 Locale 排好的字符串，本对象不做文案拼接。
  */
 object GroupReportImage {
 
     private const val IMAGE_WIDTH_PX = 1080
-    private const val HORIZONTAL_PADDING_PX = 56
-    private const val VERTICAL_PADDING_PX = 64
+    private const val OUTER_MARGIN_PX = 24          // 图片边缘到圆角卡片的外边距
+    private const val CARD_PADDING_H_PX = 40        // 卡片内左右内边距
+    private const val CARD_PADDING_TOP_PX = 44      // 卡片内顶部内边距
+    private const val CARD_PADDING_BOTTOM_PX = 40   // 卡片内底部内边距
+    private const val CARD_CORNER_RADIUS_PX = 50f   // 卡片圆角半径 50
+    private const val CARD_BORDER_WIDTH_PX = 2f     // 卡片边框 2px
     private const val BLOCK_SPACING_PX = 18
     private const val LIST_INDENT_PX = 56
     private const val QUOTE_INDENT_PX = 24
@@ -34,16 +40,19 @@ object GroupReportImage {
     private const val HEADER_TITLE_SIZE_PX = 56f
     private const val HEADER_SUBTITLE_SIZE_PX = 32f
     private const val FOOTER_SIZE_PX = 26f
-    private const val HEADER_GAP_PX = 12
-    private const val DIVIDER_GAP_PX = 24
-    private const val FOOTER_GAP_PX = 28
-    private const val BACKGROUND_COLOR = Color.WHITE
+    private const val HEADER_GAP_PX = 12            // 标题与副标题间距
+    private const val DIVIDER_GAP_PX = 20           // 横线与副标题/正文的间距
+    private const val DIVIDER_HEIGHT_PX = 2f        // 横线高度
+    private const val FOOTER_GAP_PX = 24            // 卡片底部到生成时间的间距
+    private val PAGE_BACKGROUND_COLOR = Color.parseColor("#F4F9F5")
+    private val CARD_BACKGROUND_COLOR = Color.WHITE
+    private val CARD_BORDER_COLOR = Color.parseColor("#D5E7DF")
     private val TEXT_COLOR = Color.parseColor("#2A2A2A")
     private val MUTED_COLOR = Color.parseColor("#8A8A8A")
     private val ACCENT_COLOR = Color.parseColor("#07C160")
     private val CODE_BG_COLOR = Color.parseColor("#F2F3F5")
     private val BULLET_COLOR = Color.parseColor("#3C3C3C")
-    private val DIVIDER_COLOR = Color.parseColor("#E5E5E5")
+    private val DIVIDER_COLOR = Color.parseColor("#C1D7CF")
 
     /** 生成长图并写入模块缓存目录，返回文件路径 */
     fun renderToFile(title: String, subtitle: String, footer: String, markdown: String): Path {
@@ -95,8 +104,8 @@ object GroupReportImage {
     private fun renderMarkdown(title: String, subtitle: String, footer: String, markdown: String): Bitmap {
         val blocks = parseBlocks(markdown)
 
-        // 第一遍测量总高度（用与绘制一致的块专用 paint）
-        val contentWidth = IMAGE_WIDTH_PX - HORIZONTAL_PADDING_PX * 2
+        // 卡片内可用宽度：图片宽度 - 两侧外边距 - 卡片内左右内边距
+        val contentWidth = IMAGE_WIDTH_PX - OUTER_MARGIN_PX * 2 - CARD_PADDING_H_PX * 2
 
         val titlePaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TEXT_COLOR
@@ -108,52 +117,82 @@ object GroupReportImage {
             textSize = HEADER_SUBTITLE_SIZE_PX
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
-        val titleLayout = buildLayoutText(title, titlePaint, contentWidth)
-        val subtitleLayout = buildLayoutText(subtitle, subtitlePaint, contentWidth)
-
-        val headerHeight = titleLayout.height + HEADER_GAP_PX + subtitleLayout.height
         val footerPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             color = MUTED_COLOR
             textSize = FOOTER_SIZE_PX
         }
-        val footerHeight = BLOCK_SPACING_PX + FOOTER_GAP_PX
 
-        var totalHeight = VERTICAL_PADDING_PX * 2 + headerHeight + DIVIDER_GAP_PX + footerHeight
+        // 第一遍测量总高度（与绘制使用一致的 paint 与 includePad=false，避免顶部/底部空白）
+        val titleLayout = buildLayoutText(title, titlePaint, contentWidth)
+        val subtitleLayout = buildLayoutText(subtitle, subtitlePaint, contentWidth)
+        val footerLayout = buildLayoutText(footer, footerPaint, contentWidth)
+        val headerHeight = titleLayout.height + HEADER_GAP_PX + subtitleLayout.height
+
         val measuredHeights = ArrayList<Int>(blocks.size)
+        var bodyHeight = 0
         for (block in blocks) {
+            if (block is Block.Blank) {
+                measuredHeights.add(0)
+                continue
+            }
             val layout = buildLayout(block, buildPaintFor(block), contentWidth)
-            measuredHeights.add(layout.height)
-            totalHeight += layout.height
-            totalHeight += if (block is Block.Code) 16 else 0
-            if (block !is Block.Blank) totalHeight += BLOCK_SPACING_PX
+            val h = layout.height + (if (block is Block.Code) 16 else 0) + BLOCK_SPACING_PX
+            measuredHeights.add(h)
+            bodyHeight += h
         }
+
+        val cardHeight = CARD_PADDING_TOP_PX + headerHeight +
+            DIVIDER_GAP_PX + DIVIDER_HEIGHT_PX.toInt() + DIVIDER_GAP_PX + bodyHeight +
+            CARD_PADDING_BOTTOM_PX
+
+        // 页脚位于圆角框外、图片底部
+        val totalHeight = OUTER_MARGIN_PX + cardHeight + FOOTER_GAP_PX + footerLayout.height + OUTER_MARGIN_PX
 
         val bitmap = Bitmap.createBitmap(IMAGE_WIDTH_PX, totalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        canvas.drawColor(BACKGROUND_COLOR)
+        canvas.drawColor(PAGE_BACKGROUND_COLOR)
 
-        // 绘制页眉：标题 + 副标题
-        var y = VERTICAL_PADDING_PX
+        val cardLeft = OUTER_MARGIN_PX.toFloat()
+        val cardTop = OUTER_MARGIN_PX.toFloat()
+        val cardRight = (IMAGE_WIDTH_PX - OUTER_MARGIN_PX).toFloat()
+        val cardBottom = cardTop + cardHeight
+
+        // 圆角框：白底 + 2px 边框（#D5E7DF）
+        val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CARD_BACKGROUND_COLOR }
+        canvas.drawRoundRect(cardLeft, cardTop, cardRight, cardBottom, CARD_CORNER_RADIUS_PX, CARD_CORNER_RADIUS_PX, cardPaint)
+        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = CARD_BORDER_COLOR
+            style = Paint.Style.STROKE
+            strokeWidth = CARD_BORDER_WIDTH_PX
+        }
+        canvas.drawRoundRect(cardLeft, cardTop, cardRight, cardBottom, CARD_CORNER_RADIUS_PX, CARD_CORNER_RADIUS_PX, borderPaint)
+
+        // 页眉：标题 + 副标题
+        var y = cardTop + CARD_PADDING_TOP_PX
         canvas.save()
-        canvas.translate(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat())
+        canvas.translate(cardLeft + CARD_PADDING_H_PX, y)
         titleLayout.draw(canvas)
         canvas.translate(0f, titleLayout.height + HEADER_GAP_PX.toFloat())
         subtitleLayout.draw(canvas)
         canvas.restore()
         y += headerHeight + DIVIDER_GAP_PX
 
-        // 绘制分隔线
+        // 横线（群名称与总结之间，#C1D7CF）
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = DIVIDER_COLOR }
-        canvas.drawRect(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat(), (IMAGE_WIDTH_PX - HORIZONTAL_PADDING_PX).toFloat(), (y + 1.5f).toFloat(), dividerPaint)
-        y += DIVIDER_GAP_PX
+        canvas.drawRect(
+            cardLeft + CARD_PADDING_H_PX, y.toFloat(),
+            cardRight - CARD_PADDING_H_PX, y + DIVIDER_HEIGHT_PX,
+            dividerPaint,
+        )
+        y += DIVIDER_HEIGHT_PX.toInt() + DIVIDER_GAP_PX
 
-        // 绘制正文块
+        // 正文块
         for ((index, block) in blocks.withIndex()) {
             if (block is Block.Blank) continue
             val blockPaint = buildPaintFor(block)
             val layout = buildLayout(block, blockPaint, contentWidth)
             canvas.save()
-            canvas.translate(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat())
+            canvas.translate(cardLeft + CARD_PADDING_H_PX, y.toFloat())
             if (block is Block.Bullet || block is Block.Ordered) {
                 // 绘制项目符号
                 val bulletPaint = Paint(blockPaint).apply {
@@ -171,32 +210,32 @@ object GroupReportImage {
             if (block is Block.Code) {
                 val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CODE_BG_COLOR }
                 canvas.drawRect(
-                    -HORIZONTAL_PADDING_PX / 2f,
+                    -CARD_PADDING_H_PX / 2f,
                     -8f,
-                    contentWidth + HORIZONTAL_PADDING_PX / 2f,
+                    contentWidth + CARD_PADDING_H_PX / 2f,
                     layout.height + 8f,
-                    bgPaint
+                    bgPaint,
                 )
             }
             layout.draw(canvas)
             canvas.restore()
             y += measuredHeights[index]
-            y += if (block is Block.Code) 16 else 0
-            if (block !is Block.Blank) y += BLOCK_SPACING_PX
         }
 
-        // 绘制页脚：生成时间
-        y += FOOTER_GAP_PX
-        canvas.save()
-        canvas.translate(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat())
-        canvas.drawText(footer, 0f, -footerPaint.fontMetrics.ascent, footerPaint)
-        canvas.restore()
+        // 页脚（圆角框外，紧贴卡片底部留白后绘制）
+        canvas.drawText(
+            footer,
+            cardLeft + CARD_PADDING_H_PX,
+            cardBottom + FOOTER_GAP_PX + (-footerPaint.fontMetrics.ascent),
+            footerPaint,
+        )
         return bitmap
     }
 
     private fun buildLayoutText(text: String, paint: android.text.TextPaint, contentWidth: Int): android.text.StaticLayout {
         return android.text.StaticLayout.Builder
             .obtain(text, 0, text.length, paint, contentWidth)
+            .setIncludePad(false)
             .setLineSpacing(0f, LINE_HEIGHT_RATIO)
             .build()
     }
@@ -219,6 +258,7 @@ object GroupReportImage {
         }
         return android.text.StaticLayout.Builder
             .obtain(text, 0, text.length, paint, layoutWidthFor(block, contentWidth))
+            .setIncludePad(false)
             .setLineSpacing(0f, LINE_HEIGHT_RATIO)
             .build()
     }

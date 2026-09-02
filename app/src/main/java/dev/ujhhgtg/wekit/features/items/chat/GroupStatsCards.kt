@@ -327,7 +327,7 @@ private fun WordCloud(stats: GroupStats) {
     }
 }
 
-/** 群聊活跃检测卡：独立周期滑条（最近 1~60 天，最右 1 天、最左 60 天），活跃/群成员/未发言三指标 + 低活跃成员弹窗入口 */
+/** 群聊活跃检测卡：独立周期滑条（最近 1~60 天，最左 1 天、最右 60 天），活跃/群成员/未发言三指标 + 低活跃成员弹窗入口 */
 @Composable
 internal fun GroupActivityCard(
     talker: String,
@@ -341,7 +341,7 @@ internal fun GroupActivityCard(
     }
 
     StatCard(MaterialSymbols.Outlined.Groups, R.string.ui_group_activity_title, activityCollapsed, { activityCollapsed = !activityCollapsed }) {
-        // 周期滑条（样式对齐「分析深度」）：滑条值与天数反向映射，最右 1 天、最左 60 天
+        // 周期滑条（样式对齐「分析深度」）：滑条值与天数正向映射，最左 1 天、最右 60 天
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.ui_group_activity_period),
@@ -357,9 +357,9 @@ internal fun GroupActivityCard(
         }
         Spacer(Modifier.height(4.dp))
         Slider(
-            value = (61 - days).toFloat(),
+            value = days.toFloat(),
             onValueChange = {
-                val newDays = 61 - it.roundToInt()
+                val newDays = it.roundToInt()
                 if (newDays != days) {
                     days = newDays
                     GroupAnalyzePrefs.activityDays = newDays
