@@ -43,6 +43,7 @@ object GroupReportImage {
     private const val HEADER_GAP_PX = 12            // 标题与副标题间距
     private const val DIVIDER_GAP_PX = 20           // 横线与副标题/正文的间距
     private const val DIVIDER_HEIGHT_PX = 2f        // 横线高度
+    private const val RULE_HEIGHT_PX = 1f            // 水平分割线高度
     private const val FOOTER_GAP_PX = 24            // 卡片底部到生成时间的间距
     private val PAGE_BACKGROUND_COLOR = Color.parseColor("#F4F9F5")
     private val CARD_BACKGROUND_COLOR = Color.WHITE
@@ -135,6 +136,12 @@ object GroupReportImage {
                 measuredHeights.add(0)
                 continue
             }
+            if (block is Block.Rule) {
+                val h = RULE_HEIGHT_PX.toInt() + BLOCK_SPACING_PX
+                measuredHeights.add(h)
+                bodyHeight += h
+                continue
+            }
             val layout = buildLayout(block, buildPaintFor(block), contentWidth)
             val h = layout.height + (if (block is Block.Code) 16 else 0) + BLOCK_SPACING_PX
             measuredHeights.add(h)
@@ -189,6 +196,16 @@ object GroupReportImage {
         // 正文块
         for ((index, block) in blocks.withIndex()) {
             if (block is Block.Blank) continue
+            if (block is Block.Rule) {
+                val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = DIVIDER_COLOR }
+                canvas.drawRect(
+                    cardLeft + CARD_PADDING_H_PX, y.toFloat(),
+                    cardRight - CARD_PADDING_H_PX, y + RULE_HEIGHT_PX,
+                    rulePaint,
+                )
+                y += measuredHeights[index]
+                continue
+            }
             val blockPaint = buildPaintFor(block)
             val layout = buildLayout(block, blockPaint, contentWidth)
             canvas.save()
@@ -254,6 +271,7 @@ object GroupReportImage {
             is Block.Quote -> block.content
             is Block.Code -> block.code
             is Block.Paragraph -> block.text
+            is Block.Rule -> ""
             is Block.Blank -> ""
         }
         return android.text.StaticLayout.Builder
@@ -301,8 +319,11 @@ object GroupReportImage {
         data class Ordered(val number: String, val content: String) : Block { override val marker: String get() = "$number. " }
         data class Quote(val content: String) : Block { override val marker: String get() = "" }
         data class Code(val code: String) : Block { override val marker: String get() = "" }
+        data object Rule : Block { override val marker: String get() = "" }
         data object Blank : Block { override val marker: String get() = "" }
     }
+
+    private val ruleRe = Regex("""^ {0,3}([-*_])( *\1){2,} *$""")
 
     private fun parseBlocks(markdown: String): List<Block> {
         val lines = markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
@@ -327,25 +348,30 @@ object GroupReportImage {
                     result.add(Block.Code(codeLines.joinToString("\n")))
                 }
                 trimmed.startsWith(">") -> {
-                    result.add(Block.Quote(trimmed.removePrefix(">").trimStart()))
+                    result.add(Block.Quote(stripInlineMarkdown(trimmed.removePrefix(">").trimStart())))
+                    i++
+                }
+                ruleRe.matches(trimmed) -> {
+                    // 水平分割线（---、***、___）
+                    result.add(Block.Rule)
                     i++
                 }
                 trimmed.startsWith("#") -> {
                     val match = Regex("""^(#{1,6})\s+(.*)$""").matchEntire(trimmed)
                     if (match != null) {
-                        result.add(Block.Heading(match.groupValues[1].length, match.groupValues[2].trim()))
+                        result.add(Block.Heading(match.groupValues[1].length, stripInlineMarkdown(match.groupValues[2].trim().trimEnd('#').trim())))
                     } else {
-                        result.add(Block.Paragraph(trimmed))
+                        result.add(Block.Paragraph(stripInlineMarkdown(trimmed)))
                     }
                     i++
                 }
                 trimmed.matches(Regex("""^[-*+]\s+.+""")) -> {
-                    result.add(Block.Bullet(trimmed.replaceFirst(Regex("""^[-*+]\s+"""), "")))
+                    result.add(Block.Bullet(stripInlineMarkdown(trimmed.replaceFirst(Regex("""^[-*+]\s+"""), ""))))
                     i++
                 }
                 trimmed.matches(Regex("""^\d+[.)]\s+.+""")) -> {
                     val match = Regex("""^(\d+)[.)]\s+(.*)$""").matchEntire(trimmed)!!
-                    result.add(Block.Ordered(match.groupValues[1], match.groupValues[2]))
+                    result.add(Block.Ordered(match.groupValues[1], stripInlineMarkdown(match.groupValues[2])))
                     i++
                 }
                 else -> {
@@ -356,10 +382,32 @@ object GroupReportImage {
                         para.append('\n').append(lines[i].trim())
                         i++
                     }
-                    result.add(Block.Paragraph(para.toString()))
+                    result.add(Block.Paragraph(stripInlineMarkdown(para.toString())))
                 }
             }
         }
         return result
+    }
+
+    /** 去掉行内 Markdown 符号（粗体/斜体/删除线/行内代码/链接/转义），避免其原样显示在图片中。 */
+    private fun stripInlineMarkdown(text: String): String {
+        var s = text
+        // 转义（仅 Markdown 相关字符）\x → x
+        s = Regex("""\\([\\`*_{}\[\]()#+\-.!|>])""").replace(s) { it.groupValues[1] }
+        // 行内代码 `code`
+        s = Regex("""`([^`]*)`""").replace(s) { it.groupValues[1] }
+        // 链接 [label](url) → label
+        s = Regex("""\[([^\]]*)]\([^)]*\)""").replace(s) { it.groupValues[1] }
+        // 粗斜体 ***x***
+        s = Regex("""\*\*\*(.*?)\*\*\*""").replace(s) { it.groupValues[1] }
+        // 粗体 **x** / __x__
+        s = Regex("""\*\*(.*?)\*\*""").replace(s) { it.groupValues[1] }
+        s = Regex("""__(.*?)__""").replace(s) { it.groupValues[1] }
+        // 删除线 ~~x~~
+        s = Regex("""~~(.*?)~~""").replace(s) { it.groupValues[1] }
+        // 斜体 *x* / _x_
+        s = Regex("""(?<!\*)\*([^*\n]+)\*(?!\*)""").replace(s) { it.groupValues[1] }
+        s = Regex("""(?<!_)_([^_\n]+)_(?!_)""").replace(s) { it.groupValues[1] }
+        return s
     }
 }
