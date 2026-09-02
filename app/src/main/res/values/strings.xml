@@ -1901,6 +1901,8 @@
     <string name="chat_forward_menu">Forward</string>
     <string name="chat_tts_menu">Text to speech</string>
     <string name="ui_group_analyse_title">Analysis Report</string>
+    <string name="ui_group_statistics_period">Statistics Period</string>
+    <string name="ui_group_report_footer">WeKit·Chat Record Analysis- Generated at %1$s</string>
     <string name="ui_group_wuhan">Wuhan Dialect</string>
     <string name="ui_group_smart_insight">Smart Summary</string>
     <string name="ui_group_summary_card_title">AI Summary Message</string>

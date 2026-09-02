@@ -19,6 +19,8 @@ import kotlin.io.path.div
 
 /**
  * 将群聊分析报告（Markdown 文本）渲染为白底长图并保存。
+ * 布局：顶部标题 + 绿色副标题（群名 · 统计周期） + 分隔线 + 正文 + 底部生成时间。
+ * [title]/[subtitle]/[footer] 均为已按当前 Locale 排好的字符串，本对象不做文案拼接。
  */
 object GroupReportImage {
 
@@ -29,16 +31,23 @@ object GroupReportImage {
     private const val LIST_INDENT_PX = 56
     private const val QUOTE_INDENT_PX = 24
     private const val LINE_HEIGHT_RATIO = 1.4f
+    private const val HEADER_TITLE_SIZE_PX = 56f
+    private const val HEADER_SUBTITLE_SIZE_PX = 32f
+    private const val FOOTER_SIZE_PX = 26f
+    private const val HEADER_GAP_PX = 12
+    private const val DIVIDER_GAP_PX = 24
+    private const val FOOTER_GAP_PX = 28
     private const val BACKGROUND_COLOR = Color.WHITE
     private val TEXT_COLOR = Color.parseColor("#2A2A2A")
     private val MUTED_COLOR = Color.parseColor("#8A8A8A")
     private val ACCENT_COLOR = Color.parseColor("#07C160")
     private val CODE_BG_COLOR = Color.parseColor("#F2F3F5")
     private val BULLET_COLOR = Color.parseColor("#3C3C3C")
+    private val DIVIDER_COLOR = Color.parseColor("#E5E5E5")
 
     /** 生成长图并写入模块缓存目录，返回文件路径 */
-    fun renderToFile(markdown: String): Path {
-        val bitmap = renderMarkdown(markdown)
+    fun renderToFile(title: String, subtitle: String, footer: String, markdown: String): Path {
+        val bitmap = renderMarkdown(title, subtitle, footer, markdown)
         val file = (KnownPaths.moduleCache / "group_report_${System.currentTimeMillis()}.png")
         file.parent?.createDirsSafe()
         FileOutputStream(file.toFile()).use { out ->
@@ -49,8 +58,8 @@ object GroupReportImage {
     }
 
     /** 渲染长图并保存到系统相册，返回相册 Uri（失败返回 null） */
-    fun saveToGallery(context: Context, markdown: String): Uri? {
-        val bitmap = renderMarkdown(markdown)
+    fun saveToGallery(context: Context, title: String, subtitle: String, footer: String, markdown: String): Uri? {
+        val bitmap = renderMarkdown(title, subtitle, footer, markdown)
         return try {
             val resolver = context.contentResolver
             val contentValues = ContentValues().apply {
@@ -83,12 +92,33 @@ object GroupReportImage {
         }
     }
 
-    private fun renderMarkdown(markdown: String): Bitmap {
+    private fun renderMarkdown(title: String, subtitle: String, footer: String, markdown: String): Bitmap {
         val blocks = parseBlocks(markdown)
 
         // 第一遍测量总高度（用与绘制一致的块专用 paint）
         val contentWidth = IMAGE_WIDTH_PX - HORIZONTAL_PADDING_PX * 2
-        var totalHeight = VERTICAL_PADDING_PX * 2
+
+        val titlePaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = TEXT_COLOR
+            textSize = HEADER_TITLE_SIZE_PX
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val subtitlePaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = ACCENT_COLOR
+            textSize = HEADER_SUBTITLE_SIZE_PX
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        }
+        val titleLayout = buildLayoutText(title, titlePaint, contentWidth)
+        val subtitleLayout = buildLayoutText(subtitle, subtitlePaint, contentWidth)
+
+        val headerHeight = titleLayout.height + HEADER_GAP_PX + subtitleLayout.height
+        val footerPaint = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = MUTED_COLOR
+            textSize = FOOTER_SIZE_PX
+        }
+        val footerHeight = BLOCK_SPACING_PX + FOOTER_GAP_PX
+
+        var totalHeight = VERTICAL_PADDING_PX * 2 + headerHeight + DIVIDER_GAP_PX + footerHeight
         val measuredHeights = ArrayList<Int>(blocks.size)
         for (block in blocks) {
             val layout = buildLayout(block, buildPaintFor(block), contentWidth)
@@ -102,8 +132,22 @@ object GroupReportImage {
         val canvas = Canvas(bitmap)
         canvas.drawColor(BACKGROUND_COLOR)
 
-        // 第二遍绘制
+        // 绘制页眉：标题 + 副标题
         var y = VERTICAL_PADDING_PX
+        canvas.save()
+        canvas.translate(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat())
+        titleLayout.draw(canvas)
+        canvas.translate(0f, titleLayout.height + HEADER_GAP_PX.toFloat())
+        subtitleLayout.draw(canvas)
+        canvas.restore()
+        y += headerHeight + DIVIDER_GAP_PX
+
+        // 绘制分隔线
+        val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = DIVIDER_COLOR }
+        canvas.drawRect(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat(), (IMAGE_WIDTH_PX - HORIZONTAL_PADDING_PX).toFloat(), (y + 1.5f).toFloat(), dividerPaint)
+        y += DIVIDER_GAP_PX
+
+        // 绘制正文块
         for ((index, block) in blocks.withIndex()) {
             if (block is Block.Blank) continue
             val blockPaint = buildPaintFor(block)
@@ -140,7 +184,21 @@ object GroupReportImage {
             y += if (block is Block.Code) 16 else 0
             if (block !is Block.Blank) y += BLOCK_SPACING_PX
         }
+
+        // 绘制页脚：生成时间
+        y += FOOTER_GAP_PX
+        canvas.save()
+        canvas.translate(HORIZONTAL_PADDING_PX.toFloat(), y.toFloat())
+        canvas.drawText(footer, 0f, -footerPaint.fontMetrics.ascent, footerPaint)
+        canvas.restore()
         return bitmap
+    }
+
+    private fun buildLayoutText(text: String, paint: android.text.TextPaint, contentWidth: Int): android.text.StaticLayout {
+        return android.text.StaticLayout.Builder
+            .obtain(text, 0, text.length, paint, contentWidth)
+            .setLineSpacing(0f, LINE_HEIGHT_RATIO)
+            .build()
     }
 
     private fun layoutWidthFor(block: Block, contentWidth: Int): Int = when (block) {

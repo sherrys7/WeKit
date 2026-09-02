@@ -156,6 +156,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var lowActivityMembers by remember { mutableStateOf<List<LowActivityMember>?>(null) }
         var generatedRangeRes by remember { mutableStateOf<Int?>(null) }
         var generatedAt by remember { mutableStateOf<String?>(null) }
+        var generatedAtFooter by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
 
         // 核心指标（今日/历史）与统计区数据；stats 携带时段标记，时段切换时重新加载
@@ -170,6 +171,7 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             report = null
             generatedRangeRes = timeRange.labelRes
             generatedAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            generatedAtFooter = SimpleDateFormat("yyyy年MM月dd日HH:mm:ss", Locale.getDefault()).format(Date())
             scope.launch {
                 val result = generateReport(
                     talker,
@@ -485,6 +487,10 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             }
                         }
                         Spacer(Modifier.height(8.dp))
+                        val reportTitle = stringResource(R.string.ui_group_analyse_title)
+                        val statisticsPeriod = stringResource(R.string.ui_group_statistics_period)
+                        val periodLabel = stringResource(timeRange.labelRes)
+                        val reportFooter = stringResource(R.string.ui_group_report_footer, generatedAtFooter ?: "")
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -492,7 +498,14 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             Button(
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
-                                        val saved = GroupReportImage.saveToGallery(HostInfo.application, report!!)
+                                        val subtitle = "${WeDatabaseApi.getDisplayName(talker)} · $statisticsPeriod：$periodLabel"
+                                        val saved = GroupReportImage.saveToGallery(
+                                            HostInfo.application,
+                                            reportTitle,
+                                            subtitle,
+                                            reportFooter,
+                                            report!!
+                                        )
                                         showToastSuspend(if (saved != null) "已保存长图到相册" else "保存长图失败")
                                     }
                                 },
@@ -505,7 +518,13 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                             Button(
                                 onClick = {
                                     scope.launch(Dispatchers.IO) {
-                                        val path = GroupReportImage.renderToFile(report!!)
+                                        val subtitle = "${WeDatabaseApi.getDisplayName(talker)} · $statisticsPeriod：$periodLabel"
+                                        val path = GroupReportImage.renderToFile(
+                                            reportTitle,
+                                            subtitle,
+                                            reportFooter,
+                                            report!!
+                                        )
                                         if (WeMessageApi.sendImage(talker, path.absolutePathString())) {
                                             showToastSuspend("长图已发送")
                                         } else {
@@ -1068,10 +1087,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 2. 合并重复话题，优先保留持续时间长、参与人数多、信息量高或情绪明显的内容。
 3. 只能依据聊天记录，不得编造人物、结论、故障原因、时间线或聊天原话；无法确认时明确写“记录中未确认”。
 4. 语言像一篇可直接发布的群聊日报：清晰、具体、略带幽默，但不要过度玩梗或挖苦群成员。
-5. 直接输出报告正文，不解释生成过程，不输出 Markdown 星号、井号、表格、代码围栏或 JSON。
-6. 必须保留模板中的栏目顺序；每个标题独占一行，标题与正文之间换行，段落之间保留一个空行。
-7. 所有列表统一使用“💥 ”，不要使用菱形、星号、短横线或数字列表；每个主题末尾必须有独立的“结论：”行。
-8. 不要输出模板说明或占位词；“主题标题”“关键词或人物”等必须替换为聊天记录中的真实内容。
+5. 必须保留模板中的栏目顺序；每个标题独占一行，标题与正文之间换行，段落之间保留一个空行。
+6. 所有列表统一使用“💥 ”，不要使用菱形、星号、短横线或数字列表；每个主题末尾必须有独立的“结论：”行。
+7. 不要输出模板说明或占位词；“主题标题”“关键词或人物”等必须替换为聊天记录中的真实内容。
 {若有自定义主题 → “用户希望重点关注：【$customTopic】”}
 【聊天记录开始】
 {聊天行}

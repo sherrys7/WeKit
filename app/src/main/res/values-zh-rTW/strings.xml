@@ -1847,6 +1847,8 @@
     <string name="chat_forward_menu">轉發</string>
     <string name="chat_tts_menu">轉語音</string>
     <string name="ui_group_analyse_title">分析報告</string>
+    <string name="ui_group_statistics_period">統計週期</string>
+    <string name="ui_group_report_footer">WeKit·聊天記錄分析-生成於%1$s</string>
     <string name="ui_group_wuhan">武漢口語</string>
     <string name="ui_group_smart_insight">智慧摘要</string>
     <string name="ui_group_summary_card_title">智能總結訊息</string>

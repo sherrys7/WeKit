@@ -1851,6 +1851,8 @@
     <string name="chat_forward_menu">转发</string>
     <string name="chat_tts_menu">转语音</string>
     <string name="ui_group_analyse_title">分析报告</string>
+    <string name="ui_group_statistics_period">统计周期</string>
+    <string name="ui_group_report_footer">WeKit·聊天记录分析-生成于%1$s</string>
     <string name="ui_group_wuhan">武汉口语</string>
     <string name="ui_group_smart_insight">智能摘要</string>
     <string name="ui_group_summary_card_title">智能总结消息</string>
