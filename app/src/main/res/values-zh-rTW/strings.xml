@@ -1907,7 +1907,8 @@
     <string name="ui_group_stat_words_title">高頻語義特徵</string>
     <string name="ui_group_stat_words_empty">暫無高頻詞</string>
     <string name="ui_group_activity_title">群聊活躍檢測</string>
-    <string name="ui_group_activity_range_label">檢測週期：%1$s</string>
+    <string name="ui_group_activity_period">檢測週期</string>
+    <string name="ui_group_activity_days">最近 %1$d 天</string>
     <string name="ui_group_activity_active">活躍成員</string>
     <string name="ui_group_activity_total">群成員</string>
     <string name="ui_group_activity_inactive">未發言</string>

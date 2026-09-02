@@ -1911,7 +1911,8 @@
     <string name="ui_group_stat_words_title">高频语义特征</string>
     <string name="ui_group_stat_words_empty">暂无高频词</string>
     <string name="ui_group_activity_title">群聊活跃检测</string>
-    <string name="ui_group_activity_range_label">检测周期：%1$s</string>
+    <string name="ui_group_activity_period">检测周期</string>
+    <string name="ui_group_activity_days">最近 %1$d 天</string>
     <string name="ui_group_activity_active">活跃成员</string>
     <string name="ui_group_activity_total">群成员</string>
     <string name="ui_group_activity_inactive">未发言</string>

@@ -82,10 +82,12 @@ internal object GroupAnalyzePrefs {
     var sampleLimit by WePrefs.prefOption("ana_sample_limit", 500)
     var wordCount by WePrefs.prefOption("ana_word_count", 40)
     var minWordLength by WePrefs.prefOption("ana_min_len", 2)
+    var activityDays by WePrefs.prefOption("ana_activity_days", 7)
 
     fun reportSampleLimit(): Int = sampleLimit.coerceIn(100, 50_000)
     fun reportWordCount(): Int = wordCount.coerceIn(10, 80)
     fun reportMinWordLength(): Int = minWordLength.coerceIn(2, 10)
+    fun reportActivityDays(): Int = activityDays.coerceIn(1, 60)
 }
 
 /** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
@@ -423,10 +425,11 @@ internal data class ActivityResult(
     val members: List<LowActivityMember>,
 )
 
-/** 群聊活跃检测：统计时段内每个成员的发言条数（升序，含 0 条），周期跟随总结时段 */
-internal suspend fun loadActivityResult(talker: String, range: GroupTimeRange): ActivityResult =
+/** 群聊活跃检测：统计最近 [days] 天每个成员的发言条数（升序，含 0 条），周期独立于总结时段 */
+internal suspend fun loadActivityResult(talker: String, days: Int): ActivityResult =
     withContext(Dispatchers.IO) {
-        val (start, end) = groupRangeStartEnd(range)
+        val end = System.currentTimeMillis()
+        val start = end - days * 24L * 60 * 60 * 1000
         val counts = querySenderCounts(talker, start, end)
         val membersMap = loadGroupMembersMap(talker)
         val selfWxId = WeApi.selfWxId

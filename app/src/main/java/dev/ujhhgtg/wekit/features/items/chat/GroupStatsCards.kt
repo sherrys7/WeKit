@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import com.composables.icons.materialsymbols.outlined.Schedule
 import com.composables.icons.materialsymbols.outlined.Sunny
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.ui.content.Button
+import kotlin.math.roundToInt
 
 // 设计图固定强调色（进度条/圆点等小元素，深浅色主题下均可读）
 private val BarYellow = Color(0xFFFFC107)
@@ -99,12 +101,11 @@ private fun CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int, modifie
     }
 }
 
-/** 「深度图表」统计模块组：8 个可折叠可视化卡（首卡为群聊活跃检测；活跃发言排行使用独立时段，其余跟随总结时段） */
+/** 「深度图表」统计模块组：8 个可折叠可视化卡（首卡为群聊活跃检测，含独立周期滑条；活跃发言排行使用独立时段，其余跟随总结时段） */
 @Composable
 internal fun GroupStatsCharts(
     stats: GroupStats,
     talker: String,
-    timeRange: GroupTimeRange,
     onShowLowActivity: (List<LowActivityMember>) -> Unit,
 ) {
     var rankCollapsed by remember { mutableStateOf(true) }
@@ -115,8 +116,8 @@ internal fun GroupStatsCharts(
     var hourlyCollapsed by remember { mutableStateOf(true) }
     var typeCollapsed by remember { mutableStateOf(true) }
 
-    // 群聊活跃检测：周期跟随总结时段，含低活跃成员弹窗入口
-    GroupActivityCard(talker, timeRange, onShowLowActivity)
+    // 群聊活跃检测：独立周期滑条（最近 1~60 天），含低活跃成员弹窗入口
+    GroupActivityCard(talker, onShowLowActivity)
     Spacer(Modifier.height(12.dp))
 
     StatCard(MaterialSymbols.Outlined.Format_list_numbered, R.string.ui_group_stat_rank_title, rankCollapsed, { rankCollapsed = !rankCollapsed }) {
@@ -326,24 +327,46 @@ private fun WordCloud(stats: GroupStats) {
     }
 }
 
-/** 群聊活跃检测卡：周期跟随总结时段，活跃/群成员/未发言三指标 + 低活跃成员弹窗入口 */
+/** 群聊活跃检测卡：独立周期滑条（最近 1~60 天，最右 1 天、最左 60 天），活跃/群成员/未发言三指标 + 低活跃成员弹窗入口 */
 @Composable
 internal fun GroupActivityCard(
     talker: String,
-    timeRange: GroupTimeRange,
     onShowLowActivity: (List<LowActivityMember>) -> Unit,
 ) {
     var activityCollapsed by remember { mutableStateOf(true) }
     var result by remember { mutableStateOf<ActivityResult?>(null) }
-    LaunchedEffect(talker, timeRange) {
-        result = loadActivityResult(talker, timeRange)
+    var days by remember { mutableStateOf(GroupAnalyzePrefs.reportActivityDays()) }
+    LaunchedEffect(talker, days) {
+        result = loadActivityResult(talker, days)
     }
 
     StatCard(MaterialSymbols.Outlined.Groups, R.string.ui_group_activity_title, activityCollapsed, { activityCollapsed = !activityCollapsed }) {
-        Text(
-            text = stringResource(R.string.ui_group_activity_range_label, stringResource(timeRange.labelRes)),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // 周期滑条（样式对齐「分析深度」）：滑条值与天数反向映射，最右 1 天、最左 60 天
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.ui_group_activity_period),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(R.string.ui_group_activity_days, days),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Slider(
+            value = (61 - days).toFloat(),
+            onValueChange = {
+                val newDays = 61 - it.roundToInt()
+                if (newDays != days) {
+                    days = newDays
+                    GroupAnalyzePrefs.activityDays = newDays
+                }
+            },
+            valueRange = 1f..60f,
+            modifier = Modifier.fillMaxWidth(),
         )
 
         Spacer(Modifier.height(8.dp))

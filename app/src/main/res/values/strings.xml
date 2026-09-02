@@ -1961,7 +1961,8 @@
     <string name="ui_group_stat_words_title">Frequent Words</string>
     <string name="ui_group_stat_words_empty">No frequent words yet</string>
     <string name="ui_group_activity_title">Group Activity</string>
-    <string name="ui_group_activity_range_label">Detection Period: %1$s</string>
+    <string name="ui_group_activity_period">Detection Period</string>
+    <string name="ui_group_activity_days">Last %1$d days</string>
     <string name="ui_group_activity_active">Active</string>
     <string name="ui_group_activity_total">Members</string>
     <string name="ui_group_activity_inactive">Inactive</string>
