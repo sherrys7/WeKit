@@ -2,6 +2,7 @@ package dev.ujhhgtg.wekit.features.items.contacts
 import dev.ujhhgtg.wekit.R
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ContentValues
 import android.os.Handler
 import android.os.Looper
@@ -29,8 +30,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import dev.ujhhgtg.reflekt.reflekt
+import dev.ujhhgtg.reflekt.utils.toClass
 import dev.ujhhgtg.wekit.dexkit.abc.IResolveDex
 import dev.ujhhgtg.wekit.dexkit.dsl.dexClass
 import dev.ujhhgtg.wekit.dexkit.dsl.dexConstructor
@@ -48,9 +53,11 @@ import dev.ujhhgtg.wekit.preferences.WePrefs.Companion.prefOption
 import dev.ujhhgtg.wekit.ui.content.AlertDialogContent
 import dev.ujhhgtg.wekit.ui.content.Button
 import dev.ujhhgtg.wekit.ui.content.TextButton
+import dev.ujhhgtg.wekit.ui.content.m3.PlaceholderChips
 import dev.ujhhgtg.wekit.ui.utils.showComposeDialog
 import dev.ujhhgtg.wekit.utils.WeLogger
 import dev.ujhhgtg.wekit.utils.android.showToast
+import dev.ujhhgtg.wekit.utils.formatEpoch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -69,6 +76,13 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
     WeDatabaseListenerApi.IInsertListener {
 
     override val technicalId = "自动同意好友申请"
+
+    // 自动备注占位符
+    private const val PLACEHOLDER_NICKNAME = $$"$nickname"
+    private const val PLACEHOLDER_TIME = $$"$time"
+    private const val DEFAULT_TEXT_FORMAT = $$"$nickname ($time)"
+    private const val DEFAULT_TIME_FORMAT = "yyyy-MM-dd"
+
     override val nameRes = R.string.feature_auto_accept_friend_requests_name
     override val categoryIds = listOf(FeatureCategoryIds.CONTACTS_GROUPS)
     override val descriptionRes = R.string.feature_auto_accept_friend_requests_description
@@ -86,6 +100,11 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
     private var welcomeText by prefOption("aafr_welcome_text", "你好，我已通过你的好友申请")
     private var sendWelcome by prefOption("aafr_send_welcome", true)
     private var blacklistJson by prefOption("aafr_blacklist", "[]")
+
+    // 自动备注偏好
+    private var remarkEnabled by prefOption("aafr_remark_enabled", true)
+    private var remarkTextFormat by prefOption("aafr_remark_text_format", DEFAULT_TEXT_FORMAT)
+    private var remarkTimeFormat by prefOption("aafr_remark_time_format", DEFAULT_TIME_FORMAT)
 
     // 已处理的好友请求（防重复处理）
     private val processedRequests = mutableSetOf<String>()
@@ -233,6 +252,22 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
         }.onFailure { e ->
             WeLogger.e(TAG, "failed to hook verify accept", e)
         }
+
+        // 自动备注：钩住 SayHi（打招呼/添加好友）界面，自动填充备注名
+        "com.tencent.mm.plugin.profile.ui.SayHiWithSnsPermissionUI".toClass().reflekt()
+            .firstMethod("initView").hookBefore {
+                if (!remarkEnabled) return@hookBefore
+                val activity = thisObject as? Activity ?: return@hookBefore
+                val intent = activity.intent ?: return@hookBefore
+                val nickname = intent.getStringExtra("Contact_Nick") ?: ""
+                if (nickname.isNotEmpty()) {
+                    val remark = remarkTextFormat
+                        .replace(PLACEHOLDER_NICKNAME, nickname)
+                        .replace(PLACEHOLDER_TIME, formatEpoch(System.currentTimeMillis(), remarkTimeFormat))
+                    intent.putExtra("Contact_RemarkName", remark)
+                    WeLogger.i(TAG, "auto remark succeeded: $remark")
+                }
+            }
     }
 
     override fun onDisable() {
@@ -343,8 +378,7 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                     delay(1500) // 等待好友关系建立
                     val targetWxId = findNewFriendWxId(encryptUsername)
                     if (targetWxId.isNotEmpty()) {
-                        WeMessageApi.sendText(targetWxId, welcomeText)
-                        WeLogger.i(TAG, "welcome text sent to $targetWxId")
+                        sendWelcomeMessage(targetWxId)
                     }
                 }
             }.onFailure { e ->
@@ -479,6 +513,9 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                             WeLogger.i(TAG, "[autoAccept] detect friend apply wx=$wxId")
                             if (ticket.isNullOrEmpty()) continue
                             processedWxids.add(wxId)
+                            // 跨路径去重：同时登记到 processedRequests（key=encryptUsername），
+                            // 避免同一申请又被 message/VerifyRecord 路径（handleVerifyAccept）重复接受并重复发欢迎语
+                            if (!encUsername.isNullOrEmpty()) processedRequests.add(encUsername)
                             val delayMs = if (delayMode == DelayMode.RANDOM.value) {
                                 val min = randomDelayMinMs.coerceAtLeast(0).toLong()
                                 val max = randomDelayMaxMs.coerceAtLeast(0).toLong().coerceAtLeast(min)
@@ -486,10 +523,22 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                             } else fixedDelayMs.coerceAtLeast(0).toLong()
                             val target = if (encUsername.isNullOrEmpty()) wxId else encUsername
                             mainHandler.postDelayed({
-                                runCatching {
-                                    acceptFriendRequest(target, ticket, "")
-                                    WeLogger.i(TAG, "[acceptFriendRequest] OK wx=$wxId")
-                                }.onFailure { WeLogger.e(TAG, "[acceptFriendRequest] FAIL wx=$wxId", it) }
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    runCatching {
+                                        acceptFriendRequest(target, ticket, "")
+                                        WeLogger.i(TAG, "[acceptFriendRequest] OK wx=$wxId")
+                                        // 等待好友关系建立后发送欢迎语：
+                                        // 优先用 encryptUsername 从 rcontact 反查真实 wxId，查不到则退回行内 username
+                                        if (sendWelcome && welcomeText.isNotBlank()) {
+                                            delay(1500)
+                                            val key = if (!encUsername.isNullOrEmpty()) encUsername else wxId
+                                            val welcomeTarget = findNewFriendWxId(key).ifEmpty { wxId }
+                                            if (welcomeTarget.isNotEmpty()) {
+                                                sendWelcomeMessage(welcomeTarget)
+                                            }
+                                        }
+                                    }.onFailure { WeLogger.e(TAG, "[acceptFriendRequest] FAIL wx=$wxId", it) }
+                                }
                             }, delayMs)
                         }
                         1 -> {
@@ -551,6 +600,12 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
         }.getOrDefault("")
     }
 
+    /** 发送欢迎语（sendWelcome/文本非空已在调用方保证） */
+    private fun sendWelcomeMessage(targetWxId: String) {
+        val ok = WeMessageApi.sendText(targetWxId, welcomeText)
+        WeLogger.i(TAG, "welcome text sent to $targetWxId, ok=$ok")
+    }
+
     private fun extractWxIdFromVerifyContent(verifyContent: String): String {
         // 从 verifyContent 中提取 wxId
         // 格式通常是 "v2_encryptUsername@ticket@scene"
@@ -587,9 +642,13 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
             var localSendWelcome by remember { mutableStateOf(sendWelcome) }
             var localBlacklistJson by remember { mutableStateOf(blacklistJson) }
             var localBlacklist by remember { mutableStateOf(getBlacklist().joinToString("\n")) }
+            var localRemarkEnabled by remember { mutableStateOf(remarkEnabled) }
+            var localRemarkTextFormat by remember { mutableStateOf(TextFieldValue(remarkTextFormat)) }
+            var localRemarkTimeFormat by remember { mutableStateOf(remarkTimeFormat) }
+            var isRemarkFormatFocused by remember { mutableStateOf(false) }
 
             AlertDialogContent(
-                title = { Text("自动同意好友申请") },
+                title = { Text("自动同意好友申请/自动备注") },
                 text = {
                     Column(
                         modifier = Modifier.verticalScroll(rememberScrollState())
@@ -710,6 +769,51 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                             )
                         }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                        // 自动备注
+                        ListItem(
+                            modifier = Modifier.clickable { localRemarkEnabled = !localRemarkEnabled },
+                            trailingContent = {
+                                Switch(checked = localRemarkEnabled, onCheckedChange = null)
+                            },
+                            headlineContent = { Text("自动备注", fontWeight = FontWeight.SemiBold) },
+                            supportingContent = { Text("添加好友时自动设置备注名") }
+                        )
+
+                        if (localRemarkEnabled) {
+                            Text("备注格式", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                $$"可插入占位符：$nickname=对方昵称，$time=当前时间",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            OutlinedTextField(
+                                value = localRemarkTextFormat,
+                                onValueChange = { localRemarkTextFormat = it },
+                                label = { Text("备注格式") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .onFocusChanged { isRemarkFormatFocused = it.isFocused }
+                            )
+                            PlaceholderChips(
+                                placeholders = listOf(PLACEHOLDER_NICKNAME, PLACEHOLDER_TIME),
+                                value = localRemarkTextFormat,
+                                isFieldFocused = isRemarkFormatFocused,
+                                onValueChange = { localRemarkTextFormat = it },
+                            )
+                            OutlinedTextField(
+                                value = localRemarkTimeFormat,
+                                onValueChange = { localRemarkTimeFormat = it },
+                                label = { Text("时间格式") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                            )
+                        }
                     }
                 },
                 dismissButton = {
@@ -730,6 +834,9 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                         welcomeText = localWelcomeText
                         sendWelcome = localSendWelcome
                         blacklistJson = json.encodeToString(newBlacklist)
+                        remarkEnabled = localRemarkEnabled
+                        remarkTextFormat = localRemarkTextFormat.text
+                        remarkTimeFormat = localRemarkTimeFormat
                         showToast("设置已保存")
                         onDismiss()
                     }) { Text("保存") }

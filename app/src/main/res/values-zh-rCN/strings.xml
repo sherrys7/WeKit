@@ -624,8 +624,8 @@
     <string name="feature_forward_messages_description">在消息长按菜单添加转发按钮, 可向好友或群聊批量转发</string>
     <string name="feature_group_chat_summary_name">群聊摘要</string>
     <string name="feature_group_chat_summary_description">在群聊长按菜单添加 AI 摘要入口</string>
-    <string name="feature_auto_accept_friend_requests_name">自动同意好友申请</string>
-    <string name="feature_auto_accept_friend_requests_description">自动同意好友申请，支持延迟设置、自动发送欢迎语、黑名单过滤</string>
+    <string name="feature_auto_accept_friend_requests_name">自动同意好友申请/自动备注</string>
+    <string name="feature_auto_accept_friend_requests_description">自动同意好友申请（支持延迟设置、自动发送欢迎语、黑名单过滤），并可在添加好友时自动备注</string>
     <string name="feature_half_screen_album_picker_name">半屏相册选择器</string>
     <string name="feature_half_screen_album_picker_description">将聊天「+」面板的相册选择器、图片预览和搜索页显示为半屏卡片, 上方可看到聊天内容 (图片编辑器保持全屏)</string>
     <string name="feature_hide_messages_avatars_name">隐藏消息头像</string>
