@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -151,6 +152,8 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         var showAiSettings by remember { mutableStateOf(false) }
         var collapsed by remember { mutableStateOf(false) }
         var showCapacityDialog by remember { mutableStateOf(false) }
+        var showLowActivityDialog by remember { mutableStateOf(false) }
+        var lowActivityMembers by remember { mutableStateOf<List<LowActivityMember>?>(null) }
         var generatedRangeRes by remember { mutableStateOf<Int?>(null) }
         var generatedAt by remember { mutableStateOf<String?>(null) }
         val scope = rememberCoroutineScope()
@@ -428,10 +431,17 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
 
                 Spacer(Modifier.height(16.dp))
 
-                // 深度图表：本地统计可视化
+                // 深度图表：本地统计可视化（首卡为群聊活跃检测，周期跟随总结时段）
                 GroupSectionLabel(R.string.ui_group_deep_charts)
                 Spacer(Modifier.height(8.dp))
-                statsState?.let { (_, stats) -> GroupStatsCharts(stats) }
+                statsState?.let { (_, stats) ->
+                    GroupStatsCharts(
+                        stats,
+                        talker,
+                        timeRange,
+                        onShowLowActivity = { showLowActivityDialog = true; lowActivityMembers = it },
+                    )
+                }
 
                 // 底部操作区：复制文字 / 发送文字 / 保存图像 / 发送图像
                 if (!isLoading && report != null) {
@@ -526,6 +536,18 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                 onDismiss = { showCapacityDialog = false },
             )
         }
+        AnimatedDialog(visible = showLowActivityDialog, onDismiss = { showLowActivityDialog = false }) {
+            lowActivityMembers?.let { members ->
+                LowActivityMembersDialog(
+                    talker = talker,
+                    members = members,
+                    onDismiss = {
+                        showLowActivityDialog = false
+                        lowActivityMembers = null
+                    },
+                )
+            }
+        }
     }
 
     /** 带遮罩与过渡动画的弹窗容器：淡入淡出遮罩 + 内容缩放上移进入/退出 */
@@ -577,6 +599,28 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             AiModelConfig.providerTypeName = ModelProviderType.OPENAI_CHAT_COMPLETION.name
             save()
             showToast("已保存 API 配置")
+        }
+
+        var testing by remember { mutableStateOf(false) }
+        var fetching by remember { mutableStateOf(false) }
+        var testOutcome by remember { mutableStateOf<Boolean?>(null) }
+        var testError by remember { mutableStateOf<String?>(null) }
+        var fetchError by remember { mutableStateOf<String?>(null) }
+        var models by remember { mutableStateOf<List<String>>(emptyList()) }
+        var showModelPicker by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+
+        if (showModelPicker) {
+            ModelPickerDialog(
+                models = models,
+                onPick = {
+                    AiModelConfig.modelId = it
+                    showModelPicker = false
+                    showToast("已选择模型 $it")
+                },
+                onDismiss = { showModelPicker = false },
+            )
+            return
         }
 
         AlertDialogContent(
@@ -642,6 +686,88 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                 dismissLabel = stringResource(R.string.dialog_cancel),
                             )
                         }
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Button(
+                                    onClick = {
+                                        testing = true
+                                        testOutcome = null
+                                        testError = null
+                                        scope.launch {
+                                            val r = AiModelConnection.testConnection()
+                                            testing = false
+                                            r.onSuccess {
+                                                testOutcome = true
+                                            }.onFailure {
+                                                testOutcome = false
+                                                testError = it.message
+                                            }
+                                        }
+                                    },
+                                    enabled = !testing && !fetching,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        if (testing) {
+                                            stringResource(R.string.ui_group_ai_settings_testing)
+                                        } else {
+                                            stringResource(R.string.ui_group_ai_settings_test)
+                                        },
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        fetching = true
+                                        fetchError = null
+                                        scope.launch {
+                                            val r = AiModelConnection.fetchModels()
+                                            fetching = false
+                                            r.onSuccess { list ->
+                                                models = list
+                                                showModelPicker = true
+                                            }.onFailure {
+                                                fetchError = it.message
+                                            }
+                                        }
+                                    },
+                                    enabled = !testing && !fetching,
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        if (fetching) {
+                                            stringResource(R.string.ui_group_ai_settings_fetching)
+                                        } else {
+                                            stringResource(R.string.ui_group_ai_settings_fetch_models)
+                                        },
+                                    )
+                                }
+                            }
+                            testOutcome?.let { ok ->
+                                Text(
+                                    text = if (ok) {
+                                        stringResource(R.string.ui_group_ai_settings_test_ok)
+                                    } else {
+                                        stringResource(R.string.ui_group_ai_settings_test_failed_toast, testError ?: "未知错误")
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                            fetchError?.let { err ->
+                                Text(
+                                    text = stringResource(R.string.ui_group_ai_settings_fetch_failed_toast, err),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
                     }
                 }
             },
@@ -655,6 +781,71 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     }
 
     @Composable
+    private fun ModelPickerDialog(
+        models: List<String>,
+        onPick: (String) -> Unit,
+        onDismiss: () -> Unit,
+    ) {
+        AlertDialogContent(
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_group_ai_model_picker_title),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(360.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.ui_group_ai_model_picker_summary, models.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        models.forEach { model ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(model) }
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = model,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = if (model == AiModelConfig.modelId) "✓" else "",
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = null,
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        )
+    }
+
+    @Composable
     private fun ModelCapacitySamplingDialog(
         capacity: ModelCapacity,
         onCapacityChange: (ModelCapacity) -> Unit,
@@ -662,6 +853,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
     ) {
         var draftCapacity by remember { mutableStateOf(capacity) }
         var draftLimit by remember { mutableIntStateOf(AiModelConfig.extractLimit) }
+        var draftSampleLimit by remember { mutableIntStateOf(GroupAnalyzePrefs.reportSampleLimit()) }
+        var draftWordCount by remember { mutableIntStateOf(GroupAnalyzePrefs.reportWordCount()) }
+        var draftMinLen by remember { mutableIntStateOf(GroupAnalyzePrefs.reportMinWordLength()) }
 
         AlertDialogContent(
             title = {
@@ -690,7 +884,10 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
-                                        .clickable { draftCapacity = capacity }
+                                        .clickable {
+                                            draftCapacity = capacity
+                                            if (draftLimit > capacity.autoMessageLimit()) draftLimit = capacity.autoMessageLimit()
+                                        }
                                         .padding(horizontal = 12.dp, vertical = 6.dp),
                                 )
                             }
@@ -720,13 +917,38 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     Slider(
                         value = draftLimit.toFloat(),
                         onValueChange = { draftLimit = it.roundToInt() },
-                        valueRange = 0f..3000f,
+                        valueRange = 0f..draftCapacity.autoMessageLimit().toFloat(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        text = stringResource(R.string.ui_group_extract_limit_tip),
+                        text = stringResource(R.string.ui_group_extract_limit_tip, draftCapacity.autoMessageLimit()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(16.dp))
+
+                    SamplingSliderRow(
+                        label = stringResource(R.string.ui_group_sample_limit),
+                        value = draftSampleLimit,
+                        valueRange = 100f..50_000f,
+                        onValueChange = { draftSampleLimit = it },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    SamplingSliderRow(
+                        label = stringResource(R.string.ui_group_word_count),
+                        value = draftWordCount,
+                        valueRange = 10f..80f,
+                        onValueChange = { draftWordCount = it },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    SamplingSliderRow(
+                        label = stringResource(R.string.ui_group_min_word_len),
+                        value = draftMinLen,
+                        valueRange = 2f..10f,
+                        onValueChange = { draftMinLen = it },
                     )
                 }
             },
@@ -735,6 +957,9 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     onClick = {
                         onCapacityChange(draftCapacity)
                         AiModelConfig.extractLimit = draftLimit
+                        GroupAnalyzePrefs.sampleLimit = draftSampleLimit
+                        GroupAnalyzePrefs.wordCount = draftWordCount
+                        GroupAnalyzePrefs.minWordLength = draftMinLen
                         showToast("已保存")
                         onDismiss()
                     },
@@ -747,6 +972,36 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
                     Text(stringResource(R.string.dialog_cancel))
                 }
             },
+        )
+    }
+
+    /** 采样设置单行：标签 + 当前值 + 滑块 */
+    @Composable
+    private fun SamplingSliderRow(
+        label: String,
+        value: Int,
+        valueRange: ClosedFloatingPointRange<Float>,
+        onValueChange: (Int) -> Unit,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "$value",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt()) },
+            valueRange = valueRange,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 
@@ -860,36 +1115,30 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
         )
         val client = ModelProviderManager.clientFor(provider)
 
-        // 聊天片段：extractLimit > 0 时取最近 N 条；否则按容量自动估算（默认主题约 3000 条，自定义主题按 token 预算）
-        val recentLines = if (extractLimit > 0) {
-            messages.takeLast(extractLimit).joinToString("\n") { msg ->
-                val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
-                val text = extractTextContent(msg, membersMap)
-                "$sender: $text"
+        // 仅取文本消息（对应 Hchat buildAiPrompt 的 type = 1）
+        val lines = messages.asSequence()
+            .filter { it.typeCode == 1 }
+            .map { aiMessageLine(it, membersMap) }
+            .filter { it.isNotBlank() }
+            .toList()
+        if (lines.isEmpty()) throw IllegalStateException("所选时段暂无可总结的文本消息")
+
+        // 全局均匀抽样（对应 Hchat round(i*(size-1)/(limit-1))）：
+        // extractLimit > 0 时取 N 条，否则按容量档位自动计算条数，保持时段覆盖连贯
+        val limit = if (extractLimit > 0) extractLimit else modelCapacity.autoMessageLimit()
+        val sampled = if (lines.size > limit && limit > 0) {
+            if (limit == 1) {
+                listOf(lines.last())
+            } else {
+                List(limit) { i ->
+                    val index = ((i.toLong() * (lines.size - 1)).toDouble() / (limit - 1)).roundToInt()
+                    lines[index]
+                }
             }
         } else {
-            val autoLimit = if (customTopic != null) {
-                // 自定义主题：按 token 预算估算字符数，从最新往回填
-                val budgetChars = modelCapacity.tokens * 3 / 2
-                val builder = StringBuilder()
-                var used = 0
-                for (msg in messages.asReversed()) {
-                    val line = "${resolveSenderName(extractSenderId(msg, membersMap), membersMap)}: ${extractTextContent(msg, membersMap)}"
-                    used += line.length
-                    if (used > budgetChars) break
-                    builder.insert(0, line + "\n")
-                }
-                builder.toString().trimEnd('\n')
-            } else {
-                // 默认主题：自动取最近约 1000 条，避免超出大部分模型上下文
-                messages.takeLast(1000).joinToString("\n") { msg ->
-                    val sender = resolveSenderName(extractSenderId(msg, membersMap), membersMap)
-                    val text = extractTextContent(msg, membersMap)
-                    "$sender: $text"
-                }
-            }
-            autoLimit
+            lines
         }
+        val recentLines = sampled.joinToString("\n")
 
         val (systemPrompt, userPrompt) = buildAnalysisPrompt(statsReport, recentLines, customTopic)
 
@@ -929,6 +1178,17 @@ object GroupChatSummary : SwitchFeature(), WeChatMessageContextMenuApi.IMenuItem
             throw IllegalStateException("AI未生成有效的分析报告")
         }
         return trimmed
+    }
+
+    /** 单条消息转 AI 输入行（对应 Hchat aiMessageLine）：[发送者]: 内容 */
+    private fun aiMessageLine(msg: WeMessage, membersMap: Map<String, String>): String {
+        val sender = if (msg.isSend != 0) "我" else resolveSenderName(extractSenderId(msg, membersMap), membersMap)
+        var content = extractTextContent(msg, membersMap)
+            .replace('\n', ' ')
+            .replace('\r', ' ')
+            .trim()
+        if (content.length > 600) content = content.substring(0, 600)
+        return "[$sender]: $content"
     }
 
 }

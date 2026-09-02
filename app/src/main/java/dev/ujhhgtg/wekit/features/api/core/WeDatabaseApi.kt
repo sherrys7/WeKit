@@ -773,6 +773,29 @@ object WeDatabaseApi : ApiFeature(), IResolveDex {
         }
     }
 
+    /**
+     * 获取指定会话在 [startTime, endTime] 时间窗口内【最近 limit 条】消息（返回升序）
+     * 对应 Hchat 深度分析的 `ORDER BY createTime DESC LIMIT sampleLimit`，再反转为升序。
+     */
+    fun getMessagesInRangeDesc(convId: String, startTime: Long, endTime: Long, limit: Int): List<WeMessage> {
+        if (convId.isEmpty() || limit <= 0) return emptyList()
+        val sql = """
+            SELECT * FROM message WHERE talker = ? AND createTime BETWEEN ? AND ?
+            ORDER BY createTime DESC LIMIT ?
+        """.trimIndent()
+        return executeQuery(sql, arrayOf(convId, startTime, endTime, limit)).map { row ->
+            WeMessage(
+                msgId = row.long("msgId"),
+                msgSvrId = row.long("msgSvrId"),
+                talker = row.str("talker"),
+                content = row.str("content"),
+                typeCode = row.int("type"),
+                createTime = row.long("createTime"),
+                isSend = row.int("isSend")
+            )
+        }.reversed()
+    }
+
     /** 轻量统计指定会话在时间窗口内的消息条数（COUNT，不拉取消息内容） */
     fun getMessageCountInRange(convId: String, startTime: Long, endTime: Long): Int {
         if (convId.isEmpty()) return 0

@@ -1,9 +1,12 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.R
+import dev.ujhhgtg.wekit.features.api.core.WeApi
 import dev.ujhhgtg.wekit.features.api.core.WeDatabaseApi
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
 import dev.ujhhgtg.wekit.features.api.core.models.WeMessage
+import dev.ujhhgtg.wekit.preferences.WePrefs
+import dev.ujhhgtg.wekit.utils.strings.isGroupChatWxId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -31,6 +34,7 @@ internal data class GroupStats(
     val senders: List<SenderStat>,
     val hourly: List<Int>,
     val codeCounts: Map<Int, Int>,
+    val words: Map<String, Int>,
     val laughCount: Int,
     val exclamationCount: Int,
     val questionCount: Int,
@@ -39,6 +43,9 @@ internal data class GroupStats(
     val speechlessCount: Int,
     val lengthDist: List<Int>,
 )
+
+/** 活跃发言排行条目（独立时段统计） */
+internal data class RankingEntry(val name: String, val count: Int)
 
 /** 群聊分析时间范围 */
 internal enum class GroupTimeRange(val labelRes: Int) {
@@ -59,6 +66,26 @@ internal enum class ModelCapacity(val tokens: Long, val label: String) {
     K512(512 * 1024L, "512K"),
     M1(1024 * 1024L, "1M"),
     M2(2048 * 1024L, "2M"),
+}
+
+/** AI 容量档位对应的自动提取消息条数上限（对应 Hchat aiAutoMessageLimit） */
+internal fun ModelCapacity.autoMessageLimit(): Int = when (this) {
+    ModelCapacity.K128 -> 3000
+    ModelCapacity.K256 -> 6000
+    ModelCapacity.K512 -> 12000
+    ModelCapacity.M1 -> 25000
+    ModelCapacity.M2 -> 50000
+}
+
+/** 深度分析采样与词云设置（对应 Hchat ana_sample_limit / ana_word_count / ana_min_len） */
+internal object GroupAnalyzePrefs {
+    var sampleLimit by WePrefs.prefOption("ana_sample_limit", 500)
+    var wordCount by WePrefs.prefOption("ana_word_count", 40)
+    var minWordLength by WePrefs.prefOption("ana_min_len", 2)
+
+    fun reportSampleLimit(): Int = sampleLimit.coerceIn(100, 50_000)
+    fun reportWordCount(): Int = wordCount.coerceIn(10, 80)
+    fun reportMinWordLength(): Int = minWordLength.coerceIn(2, 10)
 }
 
 /** 计算时间段 [start, end]（毫秒时间戳，与微信 message.createTime 单位一致） */
@@ -146,6 +173,20 @@ private val speechlessRegex = Regex("。{2,}|…+|无语|服了|醉了")
 
 private val laughRegex = Regex("[哈哈呵呵嘿嘿😂🤣]")
 
+private const val WORD_STOP_WORDS =
+    "我们你们他们这个那个什么怎么可以就是不是没有一个现在然后因为所以已经还是感觉知道真哈哈呵呵好的收到表情图片视频语音消息"
+
+/** 文本清洗（对应 Hchat cleanMessageText）：截断、剥离发送者前缀与 XML 标签 */
+internal fun cleanMessageText(raw: String): String {
+    var value = raw
+    if (value.length > 2000) value = value.substring(0, 2000)
+    val split = value.indexOf(":\n")
+    if (split > 0 && split < 80) value = value.substring(split + 2)
+    value = value.replace(Regex("<[^>]+>"), " ")
+    value = value.trim()
+    return if (value.length > 600) value.substring(0, 600) else value
+}
+
 private fun <K> MutableMap<K, Int>.mergeCount(key: K, value: Int, op: (Int, Int) -> Int) {
     this[key] = op(this.getOrDefault(key, 0), value)
 }
@@ -178,6 +219,8 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
     var coldCount = 0
     var speechlessCount = 0
     val lengthDist = MutableList(4) { 0 }
+    val words = HashMap<String, Int>()
+    val minWordLength = GroupAnalyzePrefs.reportMinWordLength()
 
     val cal = Calendar.getInstance()
     for (msg in messages) {
@@ -207,6 +250,22 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
             if (textContent.contains("~") || textContent.contains("～")) tildeCount++
             if (perfunctoryReplyRegex.containsMatchIn(textContent.trim())) coldCount++
             if (speechlessRegex.containsMatchIn(textContent)) speechlessCount++
+
+            // 高频语义词频（对应 Hchat 1383-1397）：中文连续段切词，长段按最短词长滑窗，含停用词过滤
+            val normalized = cleanMessageText(textContent).replace(Regex("[^一-龥]+"), " ")
+            for (piece in normalized.split(Regex("\\s+"))) {
+                val word = piece.trim()
+                if (word.length < minWordLength) continue
+                if (word.length <= 8) {
+                    words.mergeCount(word, 1, Int::plus)
+                } else {
+                    for (w in 0..(word.length - minWordLength)) {
+                        val part = word.substring(w, w + minWordLength)
+                        if (minWordLength == 2 && WORD_STOP_WORDS.contains(part)) continue
+                        words.mergeCount(part, 1, Int::plus)
+                    }
+                }
+            }
         }
     }
 
@@ -233,6 +292,7 @@ internal fun computeGroupStats(messages: List<WeMessage>, membersMap: Map<String
         senders = senders,
         hourly = hourly,
         codeCounts = codeCounts,
+        words = words,
         laughCount = laughCount,
         exclamationCount = exclamationCount,
         questionCount = questionCount,
@@ -309,6 +369,70 @@ internal suspend fun loadGroupStats(talker: String, range: GroupTimeRange): Grou
     withContext(Dispatchers.IO) {
         val membersMap = loadGroupMembersMap(talker)
         val (start, end) = groupRangeStartEnd(range)
-        val messages = WeDatabaseApi.getMessagesInRange(talker, start, end)
+        // 深度采样：仅取时段内最近 N 条消息参与统计，避免大时段全量拉取
+        val messages = WeDatabaseApi.getMessagesInRangeDesc(talker, start, end, GroupAnalyzePrefs.reportSampleLimit())
         computeGroupStats(messages, membersMap)
+    }
+
+/** SQL 侧切分群消息发送者：isSend=1 为自己，否则取 content 首个「sender:」前缀（与 extractSenderId 语义一致） */
+private const val RANKING_SENDER_SQL =
+    "CASE WHEN isSend = 1 THEN ? " +
+        "WHEN instr(content, ':' || char(10)) > 0 THEN substr(content, 1, instr(content, ':' || char(10)) - 1) " +
+        "WHEN instr(content, ':') > 0 THEN substr(content, 1, instr(content, ':') - 1) ELSE NULL END"
+
+/** 按发送者聚合时段内消息条数（排除系统消息与群 ID 前缀），供排行与活跃检测共用 */
+private fun querySenderCounts(talker: String, start: Long, end: Long): Map<String, Int> {
+    val sql = "SELECT $RANKING_SENDER_SQL AS sender, COUNT(*) AS cnt " +
+        "FROM message WHERE talker = ? AND type != 10000 " +
+        "AND createTime >= ? AND createTime <= ? " +
+        "GROUP BY sender"
+    val counts = mutableMapOf<String, Int>()
+    for (row in WeDatabaseApi.executeQuery(sql, arrayOf(WeApi.selfWxId, talker, start, end))) {
+        val senderId = row["sender"]?.toString()?.trim().orEmpty()
+        if (senderId.isEmpty() || senderId.isGroupChatWxId) continue
+        counts[senderId] = (row["cnt"] as Number).toInt()
+    }
+    return counts
+}
+
+/**
+ * 活跃发言排行：按独立于总结时段的日历区间统计 Top10 发言者。
+ * SQL 聚合避免长时段（今年/去年）全量拉取消息；排除系统消息（type=10000）。
+ */
+internal suspend fun loadGroupRanking(talker: String, range: GroupTimeRange): List<RankingEntry> =
+    withContext(Dispatchers.IO) {
+        val (start, end) = groupRangeStartEnd(range)
+        val counts = querySenderCounts(talker, start, end)
+        val membersMap = loadGroupMembersMap(talker)
+        counts.entries
+            .sortedByDescending { it.value }
+            .take(10)
+            .map { (senderId, count) ->
+                val name = if (senderId == WeApi.selfWxId) "我" else resolveSenderName(senderId, membersMap)
+                RankingEntry(name, count)
+            }
+    }
+
+/** 低活跃成员（发言条数，含 0 条） */
+internal data class LowActivityMember(val wxid: String, val name: String, val count: Int)
+
+/** 活跃检测结果 */
+internal data class ActivityResult(
+    val totalMembers: Int,
+    val activeMembers: Int,
+    val members: List<LowActivityMember>,
+)
+
+/** 群聊活跃检测：统计时段内每个成员的发言条数（升序，含 0 条），周期跟随总结时段 */
+internal suspend fun loadActivityResult(talker: String, range: GroupTimeRange): ActivityResult =
+    withContext(Dispatchers.IO) {
+        val (start, end) = groupRangeStartEnd(range)
+        val counts = querySenderCounts(talker, start, end)
+        val membersMap = loadGroupMembersMap(talker)
+        val selfWxId = WeApi.selfWxId
+        val members = membersMap.keys
+            .filter { !it.isGroupChatWxId && it != selfWxId }
+            .map { wxid -> LowActivityMember(wxid, membersMap[wxid] ?: wxid, counts[wxid] ?: 0) }
+            .sortedWith(compareBy<LowActivityMember> { it.count }.thenBy { it.name })
+        ActivityResult(members.size, members.count { it.count > 0 }, members)
     }

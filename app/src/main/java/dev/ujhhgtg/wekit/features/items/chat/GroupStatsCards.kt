@@ -1,16 +1,16 @@
 package dev.ujhhgtg.wekit.features.items.chat
 
 import dev.ujhhgtg.wekit.R
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.composables.icons.materialsymbols.MaterialSymbols
 import com.composables.icons.materialsymbols.outlined.Auto_awesome
+import com.composables.icons.materialsymbols.outlined.Chips
 import com.composables.icons.materialsymbols.outlined.Chat
 import com.composables.icons.materialsymbols.outlined.Expand_less
 import com.composables.icons.materialsymbols.outlined.Expand_more
@@ -54,6 +56,7 @@ import com.composables.icons.materialsymbols.outlined.Notes
 import com.composables.icons.materialsymbols.outlined.Schedule
 import com.composables.icons.materialsymbols.outlined.Sunny
 import dev.ujhhgtg.wekit.features.api.core.models.MessageType
+import dev.ujhhgtg.wekit.ui.content.Button
 
 // 设计图固定强调色（进度条/圆点等小元素，深浅色主题下均可读）
 private val BarYellow = Color(0xFFFFC107)
@@ -96,18 +99,32 @@ private fun CoreMetricItem(icon: ImageVector, value: Int, labelRes: Int, modifie
     }
 }
 
-/** 「深度图表」统计模块组：7 个可折叠可视化卡（对应设计图，跳过无内容的活跃度检测） */
+/** 「深度图表」统计模块组：8 个可折叠可视化卡（首卡为群聊活跃检测；活跃发言排行使用独立时段，其余跟随总结时段） */
 @Composable
-internal fun GroupStatsCharts(stats: GroupStats) {
+internal fun GroupStatsCharts(
+    stats: GroupStats,
+    talker: String,
+    timeRange: GroupTimeRange,
+    onShowLowActivity: (List<LowActivityMember>) -> Unit,
+) {
     var rankCollapsed by remember { mutableStateOf(true) }
+    var wordsCollapsed by remember { mutableStateOf(true) }
     var routineCollapsed by remember { mutableStateOf(true) }
     var emotionCollapsed by remember { mutableStateOf(true) }
     var lengthCollapsed by remember { mutableStateOf(true) }
     var hourlyCollapsed by remember { mutableStateOf(true) }
     var typeCollapsed by remember { mutableStateOf(true) }
 
+    // 群聊活跃检测：周期跟随总结时段，含低活跃成员弹窗入口
+    GroupActivityCard(talker, timeRange, onShowLowActivity)
+    Spacer(Modifier.height(12.dp))
+
     StatCard(MaterialSymbols.Outlined.Format_list_numbered, R.string.ui_group_stat_rank_title, rankCollapsed, { rankCollapsed = !rankCollapsed }) {
-        RankList(stats)
+        GroupRankingCard(talker)
+    }
+    Spacer(Modifier.height(12.dp))
+    StatCard(MaterialSymbols.Outlined.Chips, R.string.ui_group_stat_words_title, wordsCollapsed, { wordsCollapsed = !wordsCollapsed }) {
+        WordCloud(stats)
     }
     Spacer(Modifier.height(12.dp))
     StatCard(MaterialSymbols.Outlined.Schedule, R.string.ui_group_stat_routine_title, routineCollapsed, { routineCollapsed = !routineCollapsed }) {
@@ -143,7 +160,6 @@ private fun StatCard(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
-            .animateContentSize(animationSpec = tween(220))
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -170,24 +186,72 @@ private fun StatCard(
                 )
             }
         }
-        AnimatedVisibility(
-            visible = !collapsed,
-            enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        if (!collapsed) {
             Spacer(Modifier.height(12.dp))
             content()
         }
     }
 }
 
+/** 活跃发言排行卡：独立于总结时段的日历区间选择（今天~去年），切换时段重新查询 */
+@Composable
+private fun GroupRankingCard(talker: String) {
+    var rankingRange by remember { mutableStateOf(GroupTimeRange.TODAY) }
+    var rankingState by remember { mutableStateOf<Pair<GroupTimeRange, List<RankingEntry>>?>(null) }
+    LaunchedEffect(talker, rankingRange) {
+        rankingState = rankingRange to loadGroupRanking(talker, rankingRange)
+    }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            GroupTimeRange.entries.forEach { range ->
+                val selected = rankingRange == range
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (selected) MaterialTheme.colorScheme.background else Color.Transparent,
+                    border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+                ) {
+                    Text(
+                        text = stringResource(range.labelRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clickable { rankingRange = range }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        val ranking = rankingState?.takeIf { it.first == rankingRange }?.second
+        when {
+            ranking == null -> Text(
+                stringResource(R.string.ui_group_ranking_loading),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            ranking.isEmpty() -> Text(
+                stringResource(R.string.ui_group_ranking_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> RankList(ranking)
+        }
+    }
+}
+
 /** 活跃发言排行：名次圆标 + 名称 + 条数 + 进度条 */
 @Composable
-private fun RankList(stats: GroupStats) {
-    val maxCount = stats.senders.maxOfOrNull { it.count } ?: 0
+private fun RankList(entries: List<RankingEntry>) {
+    val maxCount = entries.maxOfOrNull { it.count } ?: 0
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        stats.senders.forEachIndexed { index, sender ->
+        entries.forEachIndexed { index, entry ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -198,19 +262,120 @@ private fun RankList(stats: GroupStats) {
                     Text("${index + 1}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(10.dp))
-                Text(sender.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1)
+                Text(entry.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), maxLines = 1)
                 Text(
-                    stringResource(R.string.ui_group_stat_count_fmt, sender.count),
+                    stringResource(R.string.ui_group_stat_count_fmt, entry.count),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             StatBar(
-                fraction = if (maxCount > 0) sender.count.toFloat() / maxCount else 0f,
+                fraction = if (maxCount > 0) entry.count.toFloat() / maxCount else 0f,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+    }
+}
+
+/** 高频语义特征（词云）：按词频降序展示前 N 个高频词 */
+@Composable
+private fun WordCloud(stats: GroupStats) {
+    val entries = stats.words.entries
+        .sortedByDescending { it.value }
+        .take(GroupAnalyzePrefs.reportWordCount())
+    if (entries.isEmpty()) {
+        Text(
+            text = stringResource(R.string.ui_group_stat_words_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    val maxCount = entries.first().value.coerceAtLeast(1)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        entries.forEach { (word, count) ->
+            val ratio = count.toFloat() / maxCount
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f + 0.16f * ratio),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = word,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (ratio > 0.6f) FontWeight.Bold else FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "$count",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 群聊活跃检测卡：周期跟随总结时段，活跃/群成员/未发言三指标 + 低活跃成员弹窗入口 */
+@Composable
+internal fun GroupActivityCard(
+    talker: String,
+    timeRange: GroupTimeRange,
+    onShowLowActivity: (List<LowActivityMember>) -> Unit,
+) {
+    var activityCollapsed by remember { mutableStateOf(true) }
+    var result by remember { mutableStateOf<ActivityResult?>(null) }
+    LaunchedEffect(talker, timeRange) {
+        result = loadActivityResult(talker, timeRange)
+    }
+
+    StatCard(MaterialSymbols.Outlined.Groups, R.string.ui_group_activity_title, activityCollapsed, { activityCollapsed = !activityCollapsed }) {
+        Text(
+            text = stringResource(R.string.ui_group_activity_range_label, stringResource(timeRange.labelRes)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth()) {
+            ActivityMetric(result?.activeMembers ?: 0, R.string.ui_group_activity_active, Modifier.weight(1f))
+            ActivityMetric(result?.totalMembers ?: 0, R.string.ui_group_activity_total, Modifier.weight(1f))
+            ActivityMetric((result?.totalMembers ?: 0) - (result?.activeMembers ?: 0), R.string.ui_group_activity_inactive, Modifier.weight(1f))
+        }
+
+        Spacer(Modifier.height(12.dp))
+        val members = result?.members.orEmpty()
+        Button(
+            onClick = { onShowLowActivity(members) },
+            enabled = members.isNotEmpty(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp),
+        ) {
+            Text(stringResource(R.string.ui_group_activity_show_inactive))
+        }
+    }
+}
+
+@Composable
+private fun ActivityMetric(value: Int, labelRes: Int, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("$value", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            text = stringResource(labelRes),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
