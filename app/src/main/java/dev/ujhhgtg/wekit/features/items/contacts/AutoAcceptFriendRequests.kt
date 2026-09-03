@@ -619,7 +619,7 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
     private suspend fun sendWelcomeWithRetry(encryptUsername: String, fromUser: String?, messageTalker: String?) {
         val initialDelayMs = welcomeDelayMs.coerceIn(0, 60_000)
         if (initialDelayMs > 0) {
-            delay(initialDelayMs)
+            delay(initialDelayMs.toLong())
         }
         val directCandidates = linkedSetOf<String>()
         messageTalker?.takeIf { it.isNotBlank() }?.let(directCandidates::add)
