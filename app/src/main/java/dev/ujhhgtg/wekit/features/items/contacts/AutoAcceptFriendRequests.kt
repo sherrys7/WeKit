@@ -8,16 +8,13 @@ import android.os.Handler
 import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -727,19 +724,6 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
 
                             when (localDelayMode) {
                                 DelayMode.FIXED.value -> {
-                                    val presets = listOf(0 to "立即", 500 to "0.5秒", 1000 to "1秒", 2000 to "2秒", 3000 to "3秒", 5000 to "5秒")
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        presets.forEach { (ms, label) ->
-                                            FilterChip(
-                                                selected = localFixedDelayMs == ms,
-                                                onClick = { localFixedDelayMs = ms },
-                                                label = { Text(label) }
-                                            )
-                                        }
-                                    }
                                     OutlinedTextField(
                                         value = localFixedDelayMs.toString(),
                                         onValueChange = { v ->
@@ -798,22 +782,10 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                                 // 欢迎语发送延迟
                                 Text(
                                     "发送延迟",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.padding(horizontal = 16.dp)
                                 )
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    listOf(0 to "立即", 1000 to "1秒", 2000 to "2秒", 5000 to "5秒", 10000 to "10秒").forEach { (ms, label) ->
-                                        FilterChip(
-                                            selected = localWelcomeDelayMs == ms,
-                                            onClick = { localWelcomeDelayMs = ms },
-                                            label = { Text(label) }
-                                        )
-                                    }
-                                }
                                 OutlinedTextField(
                                     value = localWelcomeDelayMs.toString(),
                                     onValueChange = { v ->
