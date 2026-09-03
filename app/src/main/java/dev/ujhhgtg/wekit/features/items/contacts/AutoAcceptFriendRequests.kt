@@ -306,11 +306,11 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
         val content = msgInfo.content ?: return
         if (content.isEmpty()) return
 
-        handleFriendVerifyContent(content)
+        handleFriendVerifyContent(content, msgInfo.talker)
     }
 
     /** 解析好友验证消息 XML 内容并执行自动同意（onInsert 与 message 轮询共用） */
-    private fun handleFriendVerifyContent(content: String) {
+    private fun handleFriendVerifyContent(content: String, talker: String? = null) {
         val encryptUsername = extractXmlValue(content, "encryptusername")
             ?: extractAttr(content, "encryptusername")
         val ticket = extractXmlValue(content, "ticket") ?: extractAttr(content, "ticket")
@@ -322,11 +322,17 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
             return
         }
 
-        handleVerifyAccept(encryptUsername, ticket, scene, fromUser)
+        handleVerifyAccept(encryptUsername, ticket, scene, fromUser, talker)
     }
 
     /** 通用自动同意入口：去重/黑名单后按延迟执行 accept（验证记录表与验证消息共用） */
-    private fun handleVerifyAccept(encryptUsername: String, ticket: String, scene: String, fromUser: String? = null) {
+    private fun handleVerifyAccept(
+        encryptUsername: String,
+        ticket: String,
+        scene: String,
+        fromUser: String? = null,
+        messageTalker: String? = null
+    ) {
         // 去重检查：key 只用 encryptUsername（稳定标识）。ticket 是同一次申请
         // 每次写入都变的一次性防重放值（微信会连插多条 VerifyRecordMsgInfo，
         // 每条 ticket 都不同），不能进 key，否则同一申请会被重复 accept。
@@ -336,6 +342,11 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
             return
         }
         processedRequests.add(requestKey)
+        // 跨路径去重：把可能的真实 wxid 也登记进 processedWxids，
+        // 避免同一次申请又被 rcontact 轮询路径重复 accept 并重复发欢迎语
+        listOfNotNull(fromUser, messageTalker)
+            .filter { it.isNotBlank() && !it.startsWith("v2_") && !it.startsWith("v3_") }
+            .forEach(processedWxids::add)
         // 清理过期记录
         if (processedRequests.size > 200) {
             processedRequests.clear()
@@ -373,13 +384,9 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                 acceptFriendRequest(encryptUsername, ticket, scene)
                 WeLogger.i(TAG, "friend request accepted: encryptUsername=$encryptUsername")
 
-                // 发送欢迎语
+                // 发送欢迎语：轮询等待好友关系建立，优先用 talker/fromUser，其次 rcontact 反查
                 if (sendWelcome && welcomeText.isNotBlank()) {
-                    delay(1500) // 等待好友关系建立
-                    val targetWxId = findNewFriendWxId(encryptUsername)
-                    if (targetWxId.isNotEmpty()) {
-                        sendWelcomeMessage(targetWxId)
-                    }
+                    sendWelcomeWithRetry(encryptUsername, fromUser, messageTalker)
                 }
             }.onFailure { e ->
                 WeLogger.e(TAG, "failed to accept friend request", e)
@@ -528,14 +535,10 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                                         acceptFriendRequest(target, ticket, "")
                                         WeLogger.i(TAG, "[acceptFriendRequest] OK wx=$wxId")
                                         // 等待好友关系建立后发送欢迎语：
-                                        // 优先用 encryptUsername 从 rcontact 反查真实 wxId，查不到则退回行内 username
+                                        // 候选目标 = rcontact 行 username(wxId)；加密键回退 rcontact 反查真实 wxid
                                         if (sendWelcome && welcomeText.isNotBlank()) {
-                                            delay(1500)
                                             val key = if (!encUsername.isNullOrEmpty()) encUsername else wxId
-                                            val welcomeTarget = findNewFriendWxId(key).ifEmpty { wxId }
-                                            if (welcomeTarget.isNotEmpty()) {
-                                                sendWelcomeMessage(welcomeTarget)
-                                            }
+                                            sendWelcomeWithRetry(key, wxId, wxId)
                                         }
                                     }.onFailure { WeLogger.e(TAG, "[acceptFriendRequest] FAIL wx=$wxId", it) }
                                 }
@@ -563,16 +566,17 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                 return
             }
             WeDatabaseApi.rawQuery(
-                "SELECT rowid, content FROM message WHERE rowid > " + lastMsgRowid +
+                "SELECT rowid, content, talker FROM message WHERE rowid > " + lastMsgRowid +
                     " AND type=37 ORDER BY rowid ASC LIMIT 20"
             ).use { cursor ->
                 while (cursor.moveToNext()) {
                     val rowid = cursor.getLong(0)
                     val content = cursor.getString(1)
+                    val talker = cursor.getString(2)
                     if (rowid > lastMsgRowid) lastMsgRowid = rowid
                     if (content.isNullOrEmpty()) continue
-                    WeLogger.i(TAG, "[msgRow] rowid=$rowid len=${content.length}")
-                    handleFriendVerifyContent(content)
+                    WeLogger.i(TAG, "[msgRow] rowid=$rowid talker=$talker len=${content.length}")
+                    handleFriendVerifyContent(content, talker)
                 }
             }
         }.onFailure { WeLogger.e(TAG, "[msgObs error] " + (it.message ?: it.toString())) }
@@ -587,23 +591,58 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
         // 实际的自动接受功能需要 DexKit 成功解析 WeChat 的验证方法
     }
 
-    private fun findNewFriendWxId(encryptUsername: String): String {
-        // 尝试通过 encryptUsername 查找新好友的 wxId
-        // 在 WeChat 中，好友请求被接受后，encryptUsername 会对应到实际 wxId
+    /** 尝试通过 encryptUsername / 原始 wxid 查找新好友在 rcontact 中的真实 username */
+    private fun findNewFriendWxId(encryptUsername: String, fromUser: String? = null): String {
+        val escaped = listOfNotNull(encryptUsername, fromUser)
+            .filter { it.isNotBlank() }
+            .joinToString("','") { it.replace("'", "''") }
+        if (escaped.isBlank()) return ""
         return runCatching {
             WeDatabaseApi.rawQuery(
-                "SELECT username FROM rcontact WHERE encryptUsername=?",
-                arrayOf(encryptUsername)
+                "SELECT username FROM rcontact WHERE " +
+                    "(encryptUsername IN ('$escaped') OR username IN ('$escaped') OR alias IN ('$escaped')) " +
+                    "LIMIT 1"
             ).use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) ?: "" else ""
             }
         }.getOrDefault("")
     }
 
-    /** 发送欢迎语（sendWelcome/文本非空已在调用方保证） */
-    private fun sendWelcomeMessage(targetWxId: String) {
+    /**
+     * 轮询等待好友关系建立后发送欢迎语。
+     * 候选目标按可靠度排序：message 表 talker / XML fromusername（真实 wxid）
+     * → rcontact 按 encryptUsername/username/alias 反查。
+     * 接受请求是异步网络往返，rcontact 落库可能晚于 accept 返回，故重试 ~15s。
+     */
+    private suspend fun sendWelcomeWithRetry(encryptUsername: String, fromUser: String?, messageTalker: String?) {
+        val directCandidates = linkedSetOf<String>()
+        messageTalker?.takeIf { it.isNotBlank() }?.let(directCandidates::add)
+        fromUser?.takeIf { it.isNotBlank() }?.let(directCandidates::add)
+        // 排除加密占位 ID（v2_/v3_ 开头），它们不是可发送的真实 wxid
+        val realDirect = directCandidates.filter { !it.startsWith("v2_") && !it.startsWith("v3_") }
+
+        repeat(6) { attempt ->
+            // 1) 先试已知真实目标
+            for (candidate in realDirect) {
+                if (sendWelcomeMessage(candidate)) return
+            }
+            // 2) 再查 rcontact（接受成功后 encryptUsername/username 已落库）
+            val resolved = findNewFriendWxId(encryptUsername, fromUser)
+            if (resolved.isNotEmpty() && sendWelcomeMessage(resolved)) return
+            if (attempt < 5) delay(2500)
+        }
+        WeLogger.w(
+            TAG,
+            "welcome message not sent: no resolvable target within retry window, " +
+                "encryptUsername=$encryptUsername fromUser=$fromUser talker=$messageTalker"
+        )
+    }
+
+    /** 发送欢迎语，成功返回 true（sendWelcome/文本非空已在调用方保证） */
+    private fun sendWelcomeMessage(targetWxId: String): Boolean {
         val ok = WeMessageApi.sendText(targetWxId, welcomeText)
         WeLogger.i(TAG, "welcome text sent to $targetWxId, ok=$ok")
+        return ok
     }
 
     private fun extractWxIdFromVerifyContent(verifyContent: String): String {
