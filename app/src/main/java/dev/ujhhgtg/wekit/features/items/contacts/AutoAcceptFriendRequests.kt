@@ -99,6 +99,7 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
     private var randomDelayMaxMs by prefOption("aafr_random_delay_max_ms", 5000)
     private var welcomeText by prefOption("aafr_welcome_text", "你好，我已通过你的好友申请")
     private var sendWelcome by prefOption("aafr_send_welcome", true)
+    private var welcomeDelayMs by prefOption("aafr_welcome_delay_ms", 2000)
     private var blacklistJson by prefOption("aafr_blacklist", "[]")
 
     // 自动备注偏好
@@ -610,11 +611,16 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
 
     /**
      * 轮询等待好友关系建立后发送欢迎语。
+     * 先按用户配置的「发送延迟」等待（0 = 立即），再尝试发送；
      * 候选目标按可靠度排序：message 表 talker / XML fromusername（真实 wxid）
      * → rcontact 按 encryptUsername/username/alias 反查。
      * 接受请求是异步网络往返，rcontact 落库可能晚于 accept 返回，故重试 ~15s。
      */
     private suspend fun sendWelcomeWithRetry(encryptUsername: String, fromUser: String?, messageTalker: String?) {
+        val initialDelayMs = welcomeDelayMs.coerceIn(0, 60_000)
+        if (initialDelayMs > 0) {
+            delay(initialDelayMs)
+        }
         val directCandidates = linkedSetOf<String>()
         messageTalker?.takeIf { it.isNotBlank() }?.let(directCandidates::add)
         fromUser?.takeIf { it.isNotBlank() }?.let(directCandidates::add)
@@ -679,6 +685,7 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
             var localRandomMaxMs by remember { mutableStateOf(randomDelayMaxMs) }
             var localWelcomeText by remember { mutableStateOf(welcomeText) }
             var localSendWelcome by remember { mutableStateOf(sendWelcome) }
+            var localWelcomeDelayMs by remember { mutableStateOf(welcomeDelayMs) }
             var localBlacklistJson by remember { mutableStateOf(blacklistJson) }
             var localBlacklist by remember { mutableStateOf(getBlacklist().joinToString("\n")) }
             var localRemarkEnabled by remember { mutableStateOf(remarkEnabled) }
@@ -787,6 +794,35 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                                     maxLines = 4,
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                                 )
+
+                                // 欢迎语发送延迟
+                                Text(
+                                    "发送延迟",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp)
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(0 to "立即", 1000 to "1秒", 2000 to "2秒", 5000 to "5秒", 10000 to "10秒").forEach { (ms, label) ->
+                                        FilterChip(
+                                            selected = localWelcomeDelayMs == ms,
+                                            onClick = { localWelcomeDelayMs = ms },
+                                            label = { Text(label) }
+                                        )
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = localWelcomeDelayMs.toString(),
+                                    onValueChange = { v ->
+                                        v.toIntOrNull()?.let { localWelcomeDelayMs = it.coerceIn(0, 60000) }
+                                    },
+                                    label = { Text("自定义发送延迟（毫秒）") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+                                )
                             }
 
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -872,6 +908,7 @@ object AutoAcceptFriendRequests : ClickableFeature(), IResolveDex,
                         randomDelayMaxMs = localRandomMaxMs
                         welcomeText = localWelcomeText
                         sendWelcome = localSendWelcome
+                        welcomeDelayMs = localWelcomeDelayMs
                         blacklistJson = json.encodeToString(newBlacklist)
                         remarkEnabled = localRemarkEnabled
                         remarkTextFormat = localRemarkTextFormat.text
