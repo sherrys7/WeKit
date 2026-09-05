@@ -319,6 +319,12 @@ Prefer these over raw Compose controls:
 - 群聊分析后续迭代：① 深度图表 7 个模块默认折叠（`GroupStatsCharts` 各 collapsed 初始 true）；② `extractWords` 词云清洗（剥 XML 标签 `<[^>]*>` 与 HTML 实体、token 只保留 `isLetterOrDigit`、停用词补 `amp/lt/gt/xml/msg/appid/version` 等，修复词云出现 `0&lt`/`version=`/`/>` 等 XML 碎片）；③ API 配置弹窗改为动态行式（`AiSettingsDialog` 用 `SegmentedColumn` 单组 + 4 个 `TextFieldDialogWidget`，点行弹编辑框确认即保存，无保存按钮）；④ 模型容量改为弹窗 `ModelCapacitySamplingDialog`（右上 Tune 打开，「模型上下文容量」5 档分段选择 128K~2M + 「提取消息数量上限」滑块 0~1000 最左=自动，取消/保存）；`ModelCapacity` 枚举加 `M2(2M)` 档；新增 `AiModelConfig.extractLimit` 偏好（0=自动）；`aiGenerateReport` recentLines 由固定 30 条改为：extractLimit>0 取最近 N 条，自动时默认主题取最近 3000 条/自定义主题按 token×1.5 字符预算；三语言新增 `ui_group_capacity_sampling_*`/`ui_group_extract_limit*`/`ui_group_extract_auto` 字符串
 - 群聊分析后续迭代（二）：① 删除词云/高频词功能（`extractWords`/`commonStopWords`/`WordCloud`/`GroupStats.words`/`renderStatsReport` 高频词行/`ui_group_stat_words_title` 三语言全删），深度图表 7 模块 → 6 模块；② 提取消息默认值 1000 条（原 3000）、滑块上限 3000（原 1000）；③ 智能摘要卡片与 6 个深度图表卡的展开/折叠改用 `AnimatedVisibility` 过渡动画（`expandVertically`/`shrinkVertically` 默认 clip 裁剪，替代早前重叠方案）+ `fillMaxWidth`；④ 删除 `renderStatsReport` 末尾 Hchat 签名行
 - 群聊分析后续迭代（三）：① 折叠动画重叠修复——`expandVertically`/`shrinkVertically` 在 `verticalScroll` 容器内高度测量异常（无限高度约束），改外层卡片 `animateContentSize(tween(220))` 平滑高度 + 内容纯 `fadeIn`/`fadeOut`（不改变布局尺寸），动画保留且不重叠；② 布局切换新设计稿（标题「智能洞察」单行去日期、主卡片浅绿底+渐变描边、时段条浅灰容器+选中白色胶囊、结果空态占位卡）——随后按用户要求恢复标题区「分析报告+日期副标题」与主卡片原色（surfaceVariant + primary 35% 描边），仅保留时段条容器样式与结果空态占位卡；③ 新增 `ui_group_result_placeholder` 三语言（空态占位文案）
+- CI 修复：3f1d24c2 修复 `compileStandardReleaseKotlin` 失败——`GroupChatSummary.kt` 报告区 `markdown = report` 因 `report` 是 `remember { mutableStateOf }` delegated property 无法 smart cast（`if (report != null)` 分支内也报错），改 `report!!`（与文件内既有用法一致）
+- 主卡片完全回滚：86d808da 按用户要求将智能摘要主卡片完全恢复 `87b88355` 布局——移除折叠动画（`animateContentSize` + fadeIn/fadeOut）回归纯 `if (!collapsed)`、时段条恢复 background 底 + primary 描边原样式（去掉浅灰容器+白胶囊）、删除结果空态占位卡及三语言 `ui_group_result_placeholder` 字符串；保留迭代二的功能改动（提取上限滑块 3000 / 自动取 1000 条）
+- dev2 功能同步：从 `sherrys8/WeKit` 的 `dev2` 分支 cherry-pick 11 个功能提交（排除 ci.yml 的 dev2 分支接入），内容与 dev2 全量一致：
+  - 群聊分析（24a0be8f）：`AiModelConnection` 连接测试（最小 Chat Completions 请求校验）+ `GET /models` 拉模型列表、API 配置弹窗新增测试连接/拉取模型入口、`ModelPickerDialog` 模型选择、`GroupAnalyzePrefs` 独立偏好（抽样条数/词云大小/最小词长）、发言排行卡（跟随报告时段）、**词云回归**（可配置大小与最小词长）、活跃检测卡（活跃/总成员/不活跃）+ 低活跃成员弹窗（`GroupLowActivityDialog`，搜索 + 批量移出群聊）、`WeDatabaseApi.getMessagesInRangeDesc`（时间窗内最近 N 条，降序取反转为升序）；三语言 +33 字符串
+  - 报告图片系列（4ad4b9b9/310ecb6e/e330abaa/9c02a18e/7e5bd3cc）：活跃检测独立周期滑条（`ana_activity_days` 最近 1~60 天滚动窗口，不再跟随总结时段）、模型容量默认 K256→K128、自定义主题 systemPrompt 重写为群聊日报模板、图片布局页眉+分隔线+正文+页脚（页脚年月日）、自定义主题与默认 prompt 禁表格、报告图片圆角卡片框+内容自适应高度+新配色+活跃检测滑条方向修正、图片渲染行内 markdown 符号清洗与水平分割线
+  - auto-accept 系列（172704e7/7c18032c/c91ed5f0/bb3d0f1f/41ce78ef）：auto-remark 合并进 auto-accept 好友请求（删除 `AutoRemarkNewFriends.kt`）、修复自动通过后欢迎语发送时序、欢迎语发送延迟可配置（初版 delay() 需 Long 修复 toLong）、延迟设置精简为仅自定义毫秒输入 + 欢迎语延迟「发送延迟」小标题
 
 ### In Progress
 - (none)
@@ -338,9 +344,10 @@ Prefer these over raw Compose controls:
 ## Next Steps
 1. 群聊分析 ComponentActivity 全屏切换已提交，待 CI 构建验证（本地不构建，CI 负责编译）；真机验证长按菜单 → 全屏界面、状态栏着色、键盘弹起（ADJUST_RESIZE）
 2. 等待用户设备上安装新 APK 后观察 toast 错误提示，定位汽水音乐搜索失败原因
+3. dev2 功能同步后待 CI 构建验证（本地不构建，CI 负责编译）；真机验证连接测试/模型选择弹窗、发言排行/活跃检测/词云卡、低活跃移群、报告图片圆角布局、auto-accept 欢迎语延迟
 
 ## Critical Context
-- 远端 `origin/dev-sherry` 最新 commit：`b34503d7`
+- 远端 `origin/dev-sherry` 最新 commit：`41ce78ef`
 - 网易云 API：`FFAPI = "https://ffapi.cn/int/v1/dg_netease"`
   - 搜索 `GET ?msg={keyword}&limit=20&format=json` → `data[{n, title, singer, pic}]`
   - 选歌 `GET ?msg={keyword}&n={index}&format=json` → `data{id, name, singer, pic, url, lrc}`
@@ -366,5 +373,9 @@ Prefer these over raw Compose controls:
 - `.../home_page_cards/HpcImageCard.kt`: 图片卡，支持自定义背景图
 - `.../chat/GroupChatSummary.kt`: 群聊智能分析，全屏界面（`fullScreen` 弹窗）+ 流式报告（`onDelta`）+ 底部 2x2 操作区；`generateReport`/`aiGenerateReport` 走 `AiModelConfig` 四参数配置
 - `.../chat/AiModelConfig.kt`: 四参数配置（`baseUrl`/`apiPath`/`apiKey`/`modelId`）持久化到 MMKV，`resolvedBaseUrl()` 拼接；provider 固定 OpenAI Chat Completions
+- `.../chat/AiModelConnection.kt`: API 连接测试与 `GET /models` 拉模型列表
+- `.../chat/GroupLowActivityDialog.kt`: 低活跃成员弹窗，搜索 + 批量移出群聊
+- `.../chat/GroupReportImage.kt`: 报告图片渲染（圆角卡片框 + 页眉/分隔线/正文/页脚）
+- `.../contacts/AutoAcceptFriendRequests.kt`: 好友自动通过（已合并 auto-remark），欢迎语延迟可配置
 - `.../ui/utils/ComposeUtils.kt`: `showComposeDialog` 新增 `fullScreen` 参数（窗口 MATCH_PARENT）
 - `.github/workflows/ci.yml`: CI 配置，含 `upload-telegram` job
